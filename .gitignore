@@ -1,0 +1,39 @@
+# Dependências (kuava-api/ e kuava-web/, e qualquer node_modules aninhado)
+node_modules/
+
+# Builds de produção
+dist/
+build/
+
+# Variáveis de ambiente — nunca committar segredos reais.
+# Os .env.example ficam versionados como modelo.
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Cobertura de testes
+coverage/
+.nyc_output/
+
+# Editores / IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Ficheiros do sistema operativo
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Diversos
+*.pid

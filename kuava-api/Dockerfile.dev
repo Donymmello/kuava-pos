@@ -1,0 +1,13 @@
+# Imagem de desenvolvimento do kuava-api: instala as dependências e corre o
+# servidor com hot-reload (tsx watch). O código-fonte é montado como bind
+# mount pelo docker-compose.yml — esta imagem só trata das dependências.
+FROM node:20-alpine
+
+WORKDIR /app
+
+COPY package.json package-lock.json ./
+RUN npm install
+
+EXPOSE 3333
+
+CMD ["npm", "run", "dev"]

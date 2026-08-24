@@ -1,0 +1,87 @@
+# Ambiente de desenvolvimento do Kuava POS.
+#
+# Uso:
+#   docker compose up --build        # primeira vez / após alterar dependências
+#   docker compose up                # nas vezes seguintes
+#   docker compose down              # parar (mantém os dados do Postgres)
+#   docker compose down -v           # parar e apagar também os dados do Postgres
+#
+# API:      http://localhost:3333/api
+# Frontend: http://localhost:5173
+# Postgres: localhost:5432 (user/senha: kuava / kuava, base: kuava_pos)
+#
+# O código de kuava-api e kuava-web é montado como bind mount, por isso as
+# alterações no editor refletem-se de imediato nos contentores (hot-reload
+# via tsx watch / Vite). Os node_modules de cada serviço ficam num volume
+# Docker próprio para não conflituarem com o node_modules (se existir) da
+# tua máquina.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kuava-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kuava_pos
+      POSTGRES_USER: kuava
+      POSTGRES_PASSWORD: kuava
+    ports:
+      - '5432:5432'
+    volumes:
+      - kuava_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U kuava -d kuava_pos']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./kuava-api
+      dockerfile: Dockerfile.dev
+    container_name: kuava-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 3333
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: kuava_pos
+      DB_USER: kuava
+      DB_PASSWORD: kuava
+      DB_LOGGING: 'false'
+      JWT_SECRET: dev-secret-troque-em-producao
+      JWT_EXPIRES_IN: 8h
+      CORS_ORIGIN: http://localhost:5173
+      IVA_RATE: 0.16
+    ports:
+      - '3333:3333'
+    volumes:
+      - ./kuava-api:/app
+      - kuava_api_node_modules:/app/node_modules
+
+  web:
+    build:
+      context: ./kuava-web
+      dockerfile: Dockerfile.dev
+    container_name: kuava-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      # Resolvido no browser do anfitrião, por isso aponta para localhost e
+      # não para o nome do serviço "api".
+      VITE_API_BASE_URL: http://localhost:3333/api
+    ports:
+      - '5173:5173'
+    volumes:
+      - ./kuava-web:/app
+      - kuava_web_node_modules:/app/node_modules
+
+volumes:
+  kuava_postgres_data:
+  kuava_api_node_modules:
+  kuava_web_node_modules:
