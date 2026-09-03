@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { ValidationError } from 'sequelize';
+import { logger } from '../config/logger';
 import { AppError } from '../utils/AppError';
 import { sendError } from '../utils/apiResponse';
 
-export function errorHandler(err: Error, _req: Request, res: Response, _next: NextFunction): void {
+export function errorHandler(err: Error, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
     sendError(res, err.message, err.statusCode, err.errors);
     return;
@@ -19,7 +20,11 @@ export function errorHandler(err: Error, _req: Request, res: Response, _next: Ne
     return;
   }
 
-  console.error('[UNHANDLED_ERROR]', err);
+  // req.log (pino-http) inclui o id do pedido — permite encontrar todos os
+  // logs de um pedido específico que rebentou, não só esta linha isolada.
+  // Cai para o logger simples se, por algum motivo, pino-http não tiver
+  // corrido antes disto (ex.: um teste a chamar isto diretamente).
+  (req.log ?? logger).error({ err }, 'Erro não tratado');
   sendError(res, 'Erro interno do servidor', 500);
 }
 

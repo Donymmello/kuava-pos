@@ -10,6 +10,19 @@ build/
 .env
 .env.*
 !.env.example
+!.env.production.example
+
+# Deploy: certificados TLS e o ficheiro de config do Nginx que cada VPS
+# gere à mão (aponta para o domínio real desse servidor) — nunca segredos
+# nem estado específico de uma máquina, só os .example ficam versionados.
+deploy/certbot/
+deploy/nginx/active.conf
+
+# Dumps de backup do Postgres — nunca devem ir para o repositório, mesmo que
+# alguém aponte BACKUP_DIR para dentro dele por engano (o valor por omissão,
+# ver .env.production.example, já fica fora do repositório).
+deploy/backup/dumps/
+*.sql.gz
 
 # Logs
 *.log

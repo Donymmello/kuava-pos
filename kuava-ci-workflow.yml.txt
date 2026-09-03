@@ -1,0 +1,128 @@
+name: CI
+
+# Corre em cada push e em cada pull request, seja qual for o nome do branch
+# principal (main ou master) — assim não depende de saber de cor qual dos
+# dois este repositório usa.
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+# Se houver um push novo para o mesmo branch/PR enquanto uma corrida anterior
+# ainda vai a meio, cancela a anterior — evita gastar minutos de CI a validar
+# um commit que já foi substituído.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  api:
+    name: API (lint, typecheck, testes, build)
+    runs-on: ubuntu-latest
+
+    # Base de dados real para os testes de integração correrem exatamente
+    # como correm localmente (ver tests/helpers.ts) — nada de mocks.
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: kuava
+          POSTGRES_PASSWORD: kuava
+          POSTGRES_DB: kuava_pos_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kuava"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    defaults:
+      run:
+        working-directory: kuava-api
+
+    env:
+      NODE_ENV: test
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_USER: kuava
+      DB_PASSWORD: kuava
+      DB_NAME: kuava_pos_ci
+      # A app calcula o nome da BD de teste como `${DB_NAME}_test` quando
+      # DB_NAME_TEST não está definida (ver sequelize-cli.config.js e
+      # vitest.config.mts) — mantém-se consistente com o que corre local.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20 para bater certo com a imagem `node:20-alpine` usada nos
+      # Dockerfiles de produção — se o build passa aqui, passa no Docker.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: kuava-api/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Testes (com base de dados PostgreSQL real)
+        run: npm test
+
+      - name: Build de produção
+        run: npm run build
+
+  web:
+    name: Web (lint, typecheck, build)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: kuava-web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: kuava-web/package-lock.json
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build de produção
+        # Sem VITE_API_BASE_URL aqui de propósito — a build de CI só precisa
+        # de confirmar que o Vite compila; o valor real só importa na build
+        # da imagem Docker de produção (ver kuava-web/Dockerfile), onde é
+        # passado como build ARG.
+        run: npm run build
+
+  docker-compose-config:
+    name: Validar docker-compose.prod.yml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Criar .env.production fictício só para validação de sintaxe
+        # `docker compose config` precisa que o ficheiro referenciado em
+        # `env_file:` exista fisicamente, mesmo só para validar a sintaxe —
+        # não faz chamadas de rede nem sobe nenhum contentor. Nunca commitado
+        # (é apagado no fim do job).
+        run: cp .env.production.example .env.production
+
+      - name: Validar sintaxe e interpolação de variáveis
+        run: docker compose --env-file .env.production -f docker-compose.prod.yml config --quiet

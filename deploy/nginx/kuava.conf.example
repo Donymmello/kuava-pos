@@ -1,0 +1,56 @@
+# FASE 2 — usar isto DEPOIS de teres o certificado TLS (ver
+# deploy/README.md). Substitui o ficheiro que estava em
+# deploy/nginx/active.conf por este, com SEU_DOMINIO trocado pelo domínio
+# real, e reinicia o serviço nginx.
+#
+#   cp deploy/nginx/kuava.conf.example deploy/nginx/active.conf
+#   (substitui SEU_DOMINIO abaixo pelo teu domínio real)
+#   docker compose -f docker-compose.prod.yml restart nginx
+
+# HTTP: só serve o desafio do certbot (para as renovações automáticas
+# continuarem a funcionar) e redireciona tudo o resto para HTTPS.
+server {
+    listen 80;
+    server_name kuava.vektramz.com;
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name kuava.vektramz.com;
+
+    ssl_certificate     /etc/letsencrypt/live/kuava.vektramz.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kuava.vektramz.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    client_max_body_size 5m;
+
+    # API: passa para o contentor kuava-api. O prefixo /api/ mantém-se
+    # (proxy_pass sem barra final no destino preserva o path completo).
+    location /api/ {
+        proxy_pass http://api:3333/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Frontend: ficheiros estáticos servidos pelo Nginx interno do
+    # contentor kuava-web (ver kuava-web/nginx.spa.conf).
+    location / {
+        proxy_pass http://web:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

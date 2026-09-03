@@ -52,7 +52,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 } }}>
+    <Box sx={{ height: '100%', overflowY: 'auto', p: { xs: 2, md: 4 } }}>
       <Stack spacing={0.5} sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 700 }}>
           Painel

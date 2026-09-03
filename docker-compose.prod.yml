@@ -1,0 +1,102 @@
+# Ambiente de PRODUÇÃO do Kuava POS — VPS próprio com Docker Compose + Nginx.
+#
+# Diferenças chave em relação ao docker-compose.yml (dev):
+#   - sem bind mounts de código, sem hot-reload — cada imagem já tem o
+#     código compilado embutido (ver kuava-api/Dockerfile e
+#     kuava-web/Dockerfile);
+#   - segredos nunca ficam neste ficheiro (que é versionado em git) — vêm
+#     de .env.production (nunca commitado, ver .env.production.example);
+#   - Postgres não expõe a porta 5432 ao anfitrião — só api e postgres
+#     conversam, dentro da rede interna do Docker;
+#   - Nginx à frente de tudo, com TLS (ver deploy/README.md para o
+#     bootstrap do certificado Let's Encrypt).
+#
+# Uso (a partir da raiz do repositório):
+#   cp .env.production.example .env.production   # e preenche os valores reais
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# Depois de subir pela primeira vez, falta ainda: aplicar as migrações e
+# criar o superadmin — ver deploy/README.md.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kuava-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - kuava_postgres_prod_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # Sem "ports:" de propósito — não expor a base de dados diretamente à
+    # internet. Só o serviço "api", dentro da mesma rede Docker, lhe acede.
+
+  api:
+    build:
+      context: ./kuava-api
+      dockerfile: Dockerfile
+    container_name: kuava-api-prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.production
+    # Sem "ports:" publicada ao anfitrião — só o Nginx (mesma rede Docker)
+    # fala com a api, em http://api:3333.
+
+  web:
+    build:
+      context: ./kuava-web
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+    container_name: kuava-web-prod
+    restart: always
+    depends_on:
+      - api
+    # Idem — só o Nginx acede, em http://web:80.
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: kuava-nginx-prod
+    restart: always
+    depends_on:
+      - api
+      - web
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      # deploy/nginx/active.conf é o ficheiro que tu geres à mão — copia
+      # deploy/nginx/bootstrap.conf.example para lá primeiro (sem TLS ainda)
+      # e troca depois por deploy/nginx/kuava.conf.example (com TLS), uma
+      # vez teres o certificado. Ver deploy/README.md.
+      - ./deploy/nginx/active.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/certbot/www:/var/www/certbot:ro
+      - ./deploy/certbot/conf:/etc/letsencrypt:ro
+
+  # Renovação automática do certificado Let's Encrypt — corre em loop,
+  # tenta renovar a cada 12h (o certbot só renova mesmo quando faltam menos
+  # de 30 dias para expirar, por isso é seguro correr tantas vezes).
+  # A emissão INICIAL do certificado não é feita por este serviço — ver
+  # deploy/README.md (é um comando `docker compose run --rm certbot ...`
+  # à parte, corrido uma única vez).
+  certbot:
+    image: certbot/certbot:latest
+    container_name: kuava-certbot-prod
+    restart: unless-stopped
+    volumes:
+      - ./deploy/certbot/www:/var/www/certbot
+      - ./deploy/certbot/conf:/etc/letsencrypt
+    entrypoint: >
+      sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot; sleep 12h & wait $${!}; done"
+
+volumes:
+  kuava_postgres_prod_data:

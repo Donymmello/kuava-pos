@@ -1,12 +1,13 @@
 import { createApp } from './app';
 import { env } from './config/env';
 import { connectDatabase } from './config/database';
+import { logger } from './config/logger';
 import './models';
 
 async function bootstrap(): Promise<void> {
   try {
     await connectDatabase();
-    console.log('[DB] Ligação à base de dados estabelecida com sucesso.');
+    logger.info('Ligação à base de dados estabelecida com sucesso.');
 
     // O esquema já não é gerido por `sequelize.sync()` — passou a ser
     // controlado por ficheiros de migração em migrations/ (sequelize-cli),
@@ -16,10 +17,10 @@ async function bootstrap(): Promise<void> {
     const app = createApp();
 
     app.listen(env.port, () => {
-      console.log(`[SERVER] Kuava API a correr na porta ${env.port} (${env.nodeEnv})`);
+      logger.info(`Kuava API a correr na porta ${env.port} (${env.nodeEnv})`);
     });
   } catch (error) {
-    console.error('[SERVER] Falha ao iniciar a aplicação:', error);
+    logger.error({ err: error }, 'Falha ao iniciar a aplicação');
     process.exit(1);
   }
 }

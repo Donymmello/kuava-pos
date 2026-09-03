@@ -1,0 +1,38 @@
+# FASE 1 — usar isto ANTES de teres certificado TLS.
+#
+# Só HTTP. Serve o desafio do Let's Encrypt (para o certbot conseguir provar
+# que controlas o domínio) e, já agora, a app toda — para o site já estar no
+# ar enquanto tratas do certificado.
+#
+# Como usar:
+#   cp deploy/nginx/bootstrap.conf.example deploy/nginx/active.conf
+#   (substitui SEU_DOMINIO abaixo pelo teu domínio real)
+#   docker compose -f docker-compose.prod.yml up -d nginx web api postgres
+#   (depois segue deploy/README.md para pedir o certificado)
+
+server {
+    listen 80;
+    server_name kuava.vektramz.com;
+
+    # Onde o certbot escreve o ficheiro de verificação — tem de ser
+    # acessível por HTTP puro, sem redirecionar para HTTPS.
+    location /.well-known/acme-challenge/ {
+        root /var/www/certbot;
+    }
+
+    location /api/ {
+        proxy_pass http://api:3333/api/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://web:80;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
