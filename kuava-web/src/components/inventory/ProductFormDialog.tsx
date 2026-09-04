@@ -155,7 +155,8 @@ export default function ProductFormDialog({
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
-                label="Preço de venda (MZN)"
+                label="Preço de venda (MZN, IVA incluído)"
+                helperText="Valor final cobrado ao cliente — o IVA já vai incluído neste preço."
                 type="number"
                 inputProps={{ min: 0, step: '0.01' }}
                 value={fields.price}

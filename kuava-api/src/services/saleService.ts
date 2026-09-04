@@ -214,13 +214,16 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
         );
       }
 
-      const { subtotal, taxAmount: lineTax } = calculateLineTotals(
+      // product.price já inclui IVA (é o preço final cobrado ao cliente) —
+      // `total` é o valor da linha tal como pago; `taxAmount` é só a fatia de
+      // IVA discriminada "para trás" a partir desse valor, para a fatura.
+      const { taxAmount: lineTax, total: lineTotal } = calculateLineTotals(
         product.price,
         requestedItem.quantity,
         product.tax_rate,
       );
 
-      totalAmount = roundCurrency(totalAmount + subtotal + lineTax);
+      totalAmount = roundCurrency(totalAmount + lineTotal);
       taxAmount = roundCurrency(taxAmount + lineTax);
 
       itemsToCreate.push({
@@ -228,7 +231,7 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
         product_name: product.name,
         quantity: requestedItem.quantity,
         unit_price: product.price,
-        subtotal,
+        subtotal: lineTotal,
       });
     }
 

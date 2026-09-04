@@ -40,25 +40,33 @@ function roundCurrency(value: number): number {
   return Math.round((value + Number.EPSILON) * 100) / 100;
 }
 
+// item.unitPrice é o preço de venda do produto já com IVA incluído (o valor
+// efetivamente cobrado por unidade) — o total da venda é a soma direta das
+// linhas; o IVA mostrado é só a fatia discriminada "para trás" a partir de
+// cada linha, para a fatura/recibo, nunca somado por cima. Mantém a mesma
+// lógica usada em kuava-api/src/services/ivaService.ts.
 function computeTotals(items: CartItem[]): CartTotals {
-  let subtotal = 0;
+  let total = 0;
   let taxTotal = 0;
   let itemCount = 0;
 
   for (const item of items) {
-    const lineSubtotal = item.unitPrice * item.quantity;
-    subtotal += lineSubtotal;
-    taxTotal += lineSubtotal * item.taxRate;
+    const lineTotal = roundCurrency(item.unitPrice * item.quantity);
+    const lineBase = roundCurrency(lineTotal / (1 + item.taxRate));
+    const lineTax = roundCurrency(lineTotal - lineBase);
+
+    total += lineTotal;
+    taxTotal += lineTax;
     itemCount += item.quantity;
   }
 
-  subtotal = roundCurrency(subtotal);
+  total = roundCurrency(total);
   taxTotal = roundCurrency(taxTotal);
 
   return {
-    subtotal,
+    subtotal: roundCurrency(total - taxTotal),
     taxTotal,
-    total: roundCurrency(subtotal + taxTotal),
+    total,
     itemCount,
   };
 }

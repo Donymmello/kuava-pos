@@ -158,7 +158,7 @@ export default function InventoryPage() {
             <TableCell>Produto</TableCell>
             <TableCell>Código de barras</TableCell>
             <TableCell>Categoria</TableCell>
-            <TableCell align="right">Preço</TableCell>
+            <TableCell align="right">Preço (c/ IVA)</TableCell>
             <TableCell align="right">Custo</TableCell>
             <TableCell align="right">Stock</TableCell>
             <TableCell align="right">IVA</TableCell>

@@ -19,9 +19,11 @@ describe('vendas e stock', () => {
       });
 
     expect(res.status).toBe(201);
-    // 3 * 100 = 300 de subtotal, + 16% de IVA = 348.
-    expect(res.body.data.total_amount).toBeCloseTo(348);
-    expect(res.body.data.tax_amount).toBeCloseTo(48);
+    // O preço do produto já inclui IVA — 3 * 100 = 300 é o total cobrado.
+    // O IVA (16%) é discriminado "para trás" a partir desse valor:
+    // base = 300 / 1.16 = 258.62, IVA = 300 - 258.62 = 41.38.
+    expect(res.body.data.total_amount).toBeCloseTo(300);
+    expect(res.body.data.tax_amount).toBeCloseTo(41.38);
 
     await product.reload();
     expect(product.stock_quantity).toBe(7);
