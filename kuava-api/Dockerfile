@@ -31,11 +31,14 @@ ENV NODE_ENV=production
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev && npm cache clean --force
 
-# Ficheiros de sequelize-cli (migrações/seeders/config) não fazem parte do
-# output do tsc — são precisos tal como estão.
+# Ficheiros de sequelize-cli (migrações/config) não fazem parte do output
+# do tsc — são precisos tal como estão. seeders/ fica de fora de propósito:
+# está vazia (nada usa `sequelize-cli db:seed`, o seed do superadmin é o
+# script dist/scripts/seedSuperadmin.js, já incluído via dist/ acima) e uma
+# pasta vazia nem sequer é reconhecida pelo git, por isso nunca chega a
+# existir no checkout do VPS — copiá-la aqui rebentava sempre o build.
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/migrations ./migrations
-COPY --from=build /app/seeders ./seeders
 COPY --from=build /app/.sequelizerc ./.sequelizerc
 COPY --from=build /app/src/config/sequelize-cli.config.js ./src/config/sequelize-cli.config.js
 

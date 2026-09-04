@@ -1,8 +1,19 @@
-# Deploy em produção — VPS próprio (Docker Compose + Nginx)
+# Deploy em produção — VPS partilhado com o vektra-site (Docker Compose + Caddy existente)
 
-Isto assume: um VPS Linux com Docker e Docker Compose instalados, uma
-porta 80 e 443 livres, e um domínio (ex. `kuava.exemplo.co.mz`) cujo
-registo DNS `A` já aponta para o IP do VPS.
+Este VPS já corre o `vektramz.com` (projeto `vektra-site`, em
+`/opt/vektra-site`), atrás de um Caddy que é o único processo a ocupar as
+portas 80/443 — ver `/opt/vektra-site/DEPLOY.md`. A Kuava POS **não traz o
+seu próprio Nginx nem gere certificados**: junta-se a esse mesmo Caddy
+através de uma rede Docker externa chamada `web`, que o `vektra-site` já
+deixou preparada exactamente para isto. `docker-compose.prod.yml` já vem
+configurado para essa rede — só falta adicionar um bloco ao `Caddyfile` do
+outro projeto (passo 4 abaixo).
+
+(Os ficheiros `deploy/nginx/*.example` e as referências a `certbot` que
+ainda encontrares no repositório são de um plano anterior, com Nginx
+próprio — ficaram obsoletos assim que percebemos que já havia um Caddy no
+VPS. Podes remover esses ficheiros quando quiseres; não são usados nesta
+versão.)
 
 ## 1. Preparar os segredos
 
@@ -15,24 +26,19 @@ cp .env.production.example .env.production
 Edita `.env.production` e preenche a sério:
 - `DB_PASSWORD` — gera com `openssl rand -base64 24`
 - `JWT_SECRET` — gera com `openssl rand -hex 32`
-- `CORS_ORIGIN` e `DOMAIN` — o teu domínio real (com `https://` no
-  `CORS_ORIGIN`, sem no `DOMAIN`)
+- `CORS_ORIGIN` e `DOMAIN` já vêm certos (`https://kuava.vektramz.com` e
+  `kuava.vektramz.com`)
 
 Este ficheiro nunca é commitado (está no `.gitignore`).
 
-## 2. Primeiro arranque — sem TLS ainda
-
-O Nginx recusa arrancar se apontar para um certificado que não existe, por
-isso o primeiro arranque é propositadamente sem HTTPS:
+## 2. Arrancar a stack
 
 ```bash
-cp deploy/nginx/bootstrap.conf.example deploy/nginx/active.conf
-# edita deploy/nginx/active.conf — já vem preenchido com kuava.vektramz.com
-
-docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build postgres api web nginx
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build postgres api web
 ```
 
-Confirma que o site responde em `http://kuava.vektramz.com` (ainda sem cadeado).
+Não há fase "sem TLS" separada — como não há Nginx nem certificado geridos
+aqui, não há nada que recuse arrancar por falta de certificado.
 
 ## 3. Aplicar migrações e criar o superadmin
 
@@ -41,47 +47,64 @@ docker compose -f docker-compose.prod.yml exec api npm run migrate
 docker compose -f docker-compose.prod.yml exec api npm run seed:superadmin:prod
 ```
 
-## 4. Pedir o certificado TLS (Let's Encrypt)
+## 4. Juntar-se ao Caddy do vektra-site
+
+Confirma primeiro que a rede partilhada existe (foi criada quando o
+`vektra-site` foi publicado):
 
 ```bash
-mkdir -p deploy/certbot/www deploy/certbot/conf
-
-docker compose -f docker-compose.prod.yml run --rm certbot \
-  certonly --webroot -w /var/www/certbot \
-  -d kuava.vektramz.com \
-  --email o-teu-email@exemplo.com --agree-tos --no-eff-email
+docker network ls | grep web
 ```
 
-Nota: só um `-d` porque `kuava.vektramz.com` é um subdomínio — não faz sentido pedir
-também `www.kuava.vektramz.com` (isso seria um subdomínio diferente, sem DNS
-apontado para o VPS).
-
-Se correr bem, os certificados ficam em `deploy/certbot/conf/live/kuava.vektramz.com/`.
-
-## 5. Ativar HTTPS
+Os serviços `api` e `web` desta stack já se juntam a ela sozinhos (é o que
+o `networks: [default, web]` no `docker-compose.prod.yml` faz) — falta só
+dizer ao Caddy para onde encaminhar `kuava.vektramz.com`. Edita o
+`Caddyfile` do outro projeto:
 
 ```bash
-cp deploy/nginx/kuava.conf.example deploy/nginx/active.conf
-# edita deploy/nginx/active.conf — já vem preenchido com kuava.vektramz.com
-
-docker compose -f docker-compose.prod.yml restart nginx
+sudo nano /opt/vektra-site/Caddyfile
 ```
 
-Confirma `https://kuava.vektramz.com` — deve responder com cadeado válido, e
-`http://kuava.vektramz.com` deve redirecionar automaticamente para https.
+E acrescenta este bloco no fim do ficheiro (fora dos blocos já existentes
+do `vektramz.com`):
 
-## 6. Renovação automática
+```caddyfile
+kuava.vektramz.com {
+        handle /api/* {
+                reverse_proxy kuava-api-prod:3333
+        }
+        handle /health {
+                reverse_proxy kuava-api-prod:3333
+        }
+        handle {
+                reverse_proxy kuava-web-prod:80
+        }
+        encode gzip
+        header {
+                Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        }
+}
+```
 
-O serviço `certbot` no `docker-compose.prod.yml` já corre em loop e tenta
-renovar a cada 12h — o certbot só renova de facto quando faltam menos de 30
-dias, por isso não há nada manual a fazer depois disto. Confirma de vez em
-quando com:
+Importante: `handle` (não `handle_path`) para `/api/*` e `/health` — a API
+espera receber o caminho completo com o prefixo `/api` (`app.use('/api',
+routes)`), e o `/health` tem de ir para a `api`, não para o `web`, senão o
+monitor da secção 8 nunca deteta a API em baixo (o `web` devolve sempre a
+página da SPA com 200, mesmo sem saber se a API está viva).
+
+Depois, reinicia só o Caddy (na pasta do outro projeto):
 
 ```bash
-docker compose -f docker-compose.prod.yml logs certbot --tail=50
+cd /opt/vektra-site
+docker compose restart caddy
+docker compose logs -f caddy   # confirma que emitiu o certificado para kuava.vektramz.com
 ```
 
-## 7. Logs
+Confirma `https://kuava.vektramz.com` — deve responder com cadeado válido
+(o Caddy trata da renovação automática dele mesmo, tal como já faz para o
+`vektramz.com` — nada a configurar aqui).
+
+## 5. Logs
 
 A API escreve logs estruturados (JSON, um por linha) em stdout — inclui um
 log por pedido HTTP (método, rota, status, duração) e qualquer erro não
@@ -96,7 +119,7 @@ Grafana Loki, Better Stack, Axiom), já estão prontos para isso — é só
 apontar um coletor de logs para a saída do contentor `api`, nada a mudar no
 código.
 
-## 8. Monitorização externa do /health
+## 6. Monitorização externa do /health
 
 `GET /health` responde `200` quando a API está de pé — mas nada avisa se o
 VPS cair, o contentor rebentar, ou o certificado expirar, a menos que
@@ -120,7 +143,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 docker compose -f docker-compose.prod.yml exec api npm run migrate
 ```
 
-## 9. Backup do Postgres
+## 7. Backup do Postgres
 
 O volume `kuava_postgres_prod_data` é a única cópia dos teus dados — sem
 backup, um disco corrompido, um `docker volume rm` por engano, ou um VPS
@@ -130,7 +153,7 @@ nada instalado no VPS além do Docker que já usas), comprime, grava
 localmente com rotação automática, e opcionalmente envia também uma cópia
 para um bucket S3-compatível (AWS S3, Backblaze B2, etc.).
 
-### 9.1 Configurar
+### 7.1 Configurar
 
 No `.env.production` (ver `.env.production.example` para todas as
 variáveis com comentários):
@@ -170,7 +193,7 @@ quanto espaço os backups antigos ocupam no bucket, configura uma regra de
 "lifecycle" (expiração automática) diretamente no bucket, não com uma
 chave que o VPS possa usar para apagar.
 
-### 9.2 Agendar (cron diário)
+### 7.2 Agendar (cron diário)
 
 ```bash
 crontab -e
@@ -189,7 +212,7 @@ cd /caminho/para/o/repositorio
 ./deploy/backup/backup-postgres.sh
 ```
 
-### 9.3 Restaurar
+### 7.3 Restaurar
 
 **Testa isto pelo menos uma vez, antes de precisares dele a sério** — um
 backup que nunca foi restaurado não é garantidamente um backup que funciona.
