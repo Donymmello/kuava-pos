@@ -8,7 +8,7 @@ import { AppError } from '../utils/AppError';
 const SALT_ROUNDS = 10;
 
 // Fase inicial (2026-08-24): todo o estabelecimento novo entra num período
-// de teste gratuito de 7 dias antes de precisar de um plano pago — ver o
+// de teste gratuito de 7 dias antes de precisar de um plano pago, ver o
 // bloqueio no login() abaixo e a ativação manual do plano no painel de
 // superadmin (superadminService.setTenantSubscriptionActive).
 const TRIAL_PERIOD_DAYS = 7;
@@ -69,7 +69,7 @@ export async function registerTenant(input: RegisterTenantInput): Promise<AuthRe
     }
 
     // O email do administrador é único em toda a aplicação (não só neste
-    // estabelecimento) — ver o comentário no índice do modelo User.
+    // estabelecimento), ver o comentário no índice do modelo User.
     const existingUser = await User.findOne({ where: { email: input.adminEmail }, transaction });
     if (existingUser) {
       throw new AppError('Já existe um utilizador registado com este email', 409);
@@ -82,7 +82,7 @@ export async function registerTenant(input: RegisterTenantInput): Promise<AuthRe
         address: input.address ?? null,
         phone: input.phone ?? null,
         email: input.tenantEmail ?? null,
-        // Fase inicial: começa em teste gratuito, não com um plano pago —
+        // Fase inicial: começa em teste gratuito, não com um plano pago,
         // ver TRIAL_PERIOD_DAYS acima. A coluna tem defaultValue:true, por
         // isso é preciso passar subscription_active explicitamente aqui.
         trial_ends_at: trialEndDate(),
@@ -131,7 +131,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
     throw new AppError('Credenciais inválidas', 401);
   }
 
-  // SUPERADMIN não tem tenant_id — só valida o estabelecimento quando o
+  // SUPERADMIN não tem tenant_id, só valida o estabelecimento quando o
   // utilizador pertence a um. Sem esta verificação, desativar um tenant no
   // painel de superadmin não bloquearia o login dos utilizadores dele.
   if (user.tenant_id) {
@@ -140,7 +140,7 @@ export async function login(input: LoginInput): Promise<AuthResult> {
       throw new AppError('Este estabelecimento foi desativado. Contacte o suporte.', 401);
     }
 
-    // Bloqueia o login (não as chamadas de uma sessão já iniciada — mesmo
+    // Bloqueia o login (não as chamadas de uma sessão já iniciada, mesmo
     // padrão do bloqueio de is_active acima) quando o período de teste
     // gratuito acabou e ninguém ativou um plano pago ainda. Tenants sem
     // trial_ends_at (registados antes desta funcionalidade) nunca são

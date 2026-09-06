@@ -3,7 +3,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { UserRole } from '../types';
 
 /**
- * Só deixa passar utilizadores SUPERADMIN — usar sempre dentro de
+ * Só deixa passar utilizadores SUPERADMIN, usar sempre dentro de
  * ProtectedRoute (que já garante que há sessão). Um utilizador normal (de
  * um tenant) que tente aceder a /superadmin é mandado para /pos.
  */

@@ -1,5 +1,5 @@
 import { api } from './api';
-import { ApiSuccessResponse, PaginatedResult, Product } from '../types';
+import { ApiSuccessResponse, PaginatedResult, Product, ProductUnit } from '../types';
 
 export interface ProductInput {
   name: string;
@@ -10,6 +10,9 @@ export interface ProductInput {
   min_stock_alert?: number;
   tax_rate?: number;
   category?: string | null;
+  unit?: ProductUnit;
+  /** "AAAA-MM-DD", ou null para remover a validade. */
+  expiry_date?: string | null;
   is_active?: boolean;
 }
 

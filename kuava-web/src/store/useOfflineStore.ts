@@ -77,11 +77,11 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
     }
 
     // Sincronizar vendas offline só faz sentido para um utilizador de um
-    // estabelecimento (tenant) — um SUPERADMIN nunca tem tenant_id, por isso
+    // estabelecimento (tenant), um SUPERADMIN nunca tem tenant_id, por isso
     // qualquer venda pendente aqui é sempre "lixo" de testes anteriores numa
     // sessão diferente. Tentar sincronizá-la geraria um 403 do
     // tenantMiddleware; isto é só uma segunda camada de proteção (a
-    // verdadeira correção é o tenantMiddleware devolver 403 em vez de 401 —
+    // verdadeira correção é o tenantMiddleware devolver 403 em vez de 401,
     // ver kuava-api/src/middlewares/tenantMiddleware.ts).
     const currentUser = useAuthStore.getState().user;
     if (!currentUser || currentUser.role === UserRole.SUPERADMIN) {
@@ -112,13 +112,13 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
           failed += 1;
 
           if (isNetworkError(error)) {
-            // Ainda sem ligação — repõe o estado e não tenta as restantes agora.
+            // Ainda sem ligação, repõe o estado e não tenta as restantes agora.
             await offlineDb.pendingSales.update(sale.localId as number, { status: 'pending' });
             set({ isOnline: false });
             break;
           }
 
-          // Rejeição real da API (ex.: produto entretanto desativado) — fica
+          // Rejeição real da API (ex.: produto entretanto desativado), fica
           // marcada como erro para o utilizador decidir o que fazer.
           await offlineDb.pendingSales.update(sale.localId as number, {
             status: 'error',

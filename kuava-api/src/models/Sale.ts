@@ -20,10 +20,10 @@ export class Sale extends Model<InferAttributes<Sale>, InferCreationAttributes<S
   /**
    * Chave de idempotência opcional gerada no cliente (ex.: uma venda feita
    * offline no POS e sincronizada mais tarde). Permite reenviar a mesma
-   * venda em segurança sem duplicar — ver services/saleService.ts.
+   * venda em segurança sem duplicar, ver services/saleService.ts.
    */
   declare client_ref: string | null;
-  /** Só preenchido quando payment_method é MPESA/EMOLA — ver enums.ts. */
+  /** Só preenchido quando payment_method é MPESA/EMOLA, ver enums.ts. */
   declare mobile_money_flow: MobileMoneyFlow | null;
   /** Referência de confirmação da SMS, quando mobile_money_flow é TRANSFER. */
   declare payment_reference: string | null;

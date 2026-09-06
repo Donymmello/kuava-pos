@@ -1,7 +1,7 @@
 import { Alert, List, ListItem, ListItemText, Typography } from '@mui/material';
 import LegalLayout from './LegalLayout';
 
-// TODO(dono): ver a mesma nota em TermosPage.tsx — os contactos abaixo
+// TODO(dono): ver a mesma nota em TermosPage.tsx. Os contactos abaixo
 // precisam dos dados legais reais da empresa.
 const EMAIL_CONTACTO = '[EMAIL DE CONTACTO]';
 const TELEFONE_CONTACTO = '[TELEFONE DE CONTACTO]';
@@ -11,7 +11,7 @@ export default function PoliticaPage() {
     <LegalLayout title="Política de Privacidade" updatedAt="agosto de 2026">
       <Alert severity="info">
         Nota importante: este documento é um modelo de base e não constitui aconselhamento jurídico.
-        Antes de ser considerado definitivo, deve ser revisto por um advogado moçambicano — em
+        Antes de ser considerado definitivo, deve ser revisto por um advogado moçambicano, em
         particular para confirmar o enquadramento fiscal (emissão de faturas, NUIT), preencher os
         campos entre colchetes com os dados legais reais da empresa, e acompanhar a nova Lei de
         Proteção de Dados Pessoais, aprovada pelo Conselho de Ministros e ainda pendente de aprovação
@@ -29,15 +29,15 @@ export default function PoliticaPage() {
       <Typography variant="h6">2. Enquadramento legal atual</Typography>
       <Typography>
         Moçambique ainda não tem, à data desta política, uma lei geral de proteção de dados pessoais
-        em vigor — uma proposta de lei já foi aprovada pelo Conselho de Ministros e encontra-se
+        em vigor. Uma proposta de lei já foi aprovada pelo Conselho de Ministros e encontra-se
         pendente de submissão e aprovação pela Assembleia da República. Enquanto isso, aplicam-se as
         proteções gerais da Constituição da República (direito à vida privada) e obrigações
         específicas da Lei das Transações Eletrónicas (2017) para dados tratados eletronicamente.
       </Typography>
       <Typography>
         Mesmo na ausência de uma lei geral em vigor, a Kuava compromete-se a seguir os princípios
-        internacionalmente reconhecidos de boa prática em proteção de dados — minimização, finalidade
-        definida, segurança e direitos do titular — descritos nesta política, e a atualizá-la assim
+        internacionalmente reconhecidos de boa prática em proteção de dados (minimização, finalidade
+        definida, segurança e direitos do titular) descritos nesta política, e a atualizá-la assim
         que a nova legislação moçambicana entrar em vigor.
       </Typography>
 
@@ -51,7 +51,7 @@ export default function PoliticaPage() {
       <Typography variant="subtitle2">3.2 Dados dos Utilizadores (contas de acesso)</Typography>
       <List dense disablePadding>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary="Nome, email, palavra-passe (guardada apenas de forma encriptada — nunca em texto simples), função/role dentro do Estabelecimento." />
+          <ListItemText primary="Nome, email, palavra-passe (guardada apenas de forma encriptada, nunca em texto simples), função/role dentro do Estabelecimento." />
         </ListItem>
       </List>
       <Typography variant="subtitle2">3.3 Dados operacionais introduzidos pelo Estabelecimento</Typography>
@@ -60,15 +60,15 @@ export default function PoliticaPage() {
           <ListItemText primary="Catálogo de produtos e stock." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary="Registos de vendas e faturas — podem incluir nome/NUIT de clientes finais do Estabelecimento, quando estes são incluídos numa fatura." />
+          <ListItemText primary="Registos de vendas e faturas: podem incluir nome/NUIT de clientes finais do Estabelecimento, quando estes são incluídos numa fatura." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary="Referências de confirmação de pagamento por M-Pesa/e-Mola inseridas manualmente pelo Estabelecimento (ex.: código SMS) — a Kuava POS não processa pagamentos diretamente nem acede a contas M-Pesa/e-Mola." />
+          <ListItemText primary="Referências de confirmação de pagamento por M-Pesa/e-Mola inseridas manualmente pelo Estabelecimento (ex.: código SMS). A Kuava POS não processa pagamentos diretamente nem acede a contas M-Pesa/e-Mola." />
         </ListItem>
       </List>
       <Typography>
-        A Kuava POS não recolhe nem guarda dados de cartões bancários ou credenciais de pagamento —
-        não existe processamento automático de pagamentos dentro do Serviço nesta fase.
+        A Kuava POS não recolhe nem guarda dados de cartões bancários ou credenciais de pagamento.
+        Não existe processamento automático de pagamentos dentro do Serviço nesta fase.
       </Typography>
 
       <Typography variant="h6">4. Para que usamos os dados</Typography>
@@ -77,7 +77,7 @@ export default function PoliticaPage() {
           <ListItemText primary="Prestar o Serviço (autenticação, gestão de vendas/stock, geração de faturas e recibos)." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary="Comunicar sobre a conta — confirmações, avisos de fim de período experimental, ativação de plano, suporte." />
+          <ListItemText primary="Comunicar sobre a conta: confirmações, avisos de fim de período experimental, ativação de plano, suporte." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
           <ListItemText primary="Manter a segurança e integridade do Serviço (ex.: prevenção de acessos indevidos, limitação de tentativas de início de sessão)." />
@@ -107,13 +107,13 @@ export default function PoliticaPage() {
       <Typography variant="h6">6. Segurança</Typography>
       <List dense disablePadding>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary="Palavras-passe guardadas com encriptação unidirecional (bcrypt) — a Kuava nunca vê nem consegue recuperar a palavra-passe original de um Utilizador." />
+          <ListItemText primary="Palavras-passe guardadas com encriptação unidirecional (bcrypt). A Kuava nunca vê nem consegue recuperar a palavra-passe original de um Utilizador." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
           <ListItemText primary="Comunicação entre a aplicação e o servidor protegida por TLS/HTTPS." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary="Isolamento de dados entre Estabelecimentos — um Estabelecimento nunca tem acesso aos dados de outro." />
+          <ListItemText primary="Isolamento de dados entre Estabelecimentos: um Estabelecimento nunca tem acesso aos dados de outro." />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
           <ListItemText primary="Acesso interno da equipa da Kuava aos dados dos Estabelecimentos é restrito e usado apenas para prestar suporte técnico ou operações de manutenção necessárias." />
@@ -124,7 +124,7 @@ export default function PoliticaPage() {
       <Typography>
         Os Dados do Estabelecimento são conservados enquanto a conta estiver ativa. Após o
         encerramento de uma conta, os dados são conservados por um período razoável (até 90 dias) para
-        permitir reativação a pedido do Estabelecimento, findo o qual são eliminados — salvo quando a
+        permitir reativação a pedido do Estabelecimento, findo o qual são eliminados, salvo quando a
         lei moçambicana exigir conservação mais longa (ex.: registos fiscais/faturação).
       </Typography>
 

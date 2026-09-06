@@ -11,14 +11,14 @@ export type PendingSaleStatus = 'pending' | 'syncing' | 'error';
 /** Uma venda registada no POS enquanto offline, à espera de sincronizar. */
 export interface PendingSale {
   localId?: number;
-  /** Chave de idempotência — evita duplicar a venda se a sincronização for repetida. */
+  /** Chave de idempotência, evita duplicar a venda se a sincronização for repetida. */
   clientRef: string;
   paymentMethod: PaymentMethod;
   items: PendingSaleItem[];
   createdAt: string;
   status: PendingSaleStatus;
   errorMessage?: string;
-  /** Só preenchidos quando paymentMethod é MPESA/EMOLA — ver types/index.ts. */
+  /** Só preenchidos quando paymentMethod é MPESA/EMOLA, ver types/index.ts. */
   mobileMoneyFlow?: MobileMoneyFlow;
   paymentReference?: string;
   agentMarginAmount?: number;

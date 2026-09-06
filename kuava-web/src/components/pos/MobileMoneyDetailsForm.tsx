@@ -8,17 +8,17 @@ interface MobileMoneyDetailsFormProps {
   onFlowChange: (flow: MobileMoneyFlow | null) => void;
   onPaymentReferenceChange: (value: string) => void;
   onAgentMarginAmountChange: (value: string) => void;
-  /** Mensagem de validação da margem (ex.: valor negativo/inválido) — mostrada no próprio campo. */
+  /** Mensagem de validação da margem (ex.: valor negativo/inválido), mostrada no próprio campo. */
   marginError?: string | null;
 }
 
 /**
  * Não existe uma API C2B simples de M-Pesa/e-Mola para um POS pequeno se
- * ligar — na prática, o pagamento chega de uma de duas formas: o cliente
+ * ligar, na prática, o pagamento chega de uma de duas formas: o cliente
  * transfere para o número da loja (confirmado com a referência da SMS), ou
  * a loja funciona como agente e o cliente levanta, ficando a loja com uma
  * margem sobre o valor. Este formulário aparece quando o método selecionado
- * é M-Pesa ou e-Mola, para o caixa indicar qual dos dois se aplica — mas é
+ * é M-Pesa ou e-Mola, para o caixa indicar qual dos dois se aplica, mas é
  * inteiramente opcional, para não atrasar o atendimento: dá para finalizar a
  * venda sem tocar em nada aqui.
  */
@@ -53,7 +53,7 @@ export default function MobileMoneyDetailsForm({
 
       {flow === MobileMoneyFlow.TRANSFER && (
         <TextField
-          label="Referência da confirmação (SMS) — opcional"
+          label="Referência da confirmação (SMS), opcional"
           size="small"
           fullWidth
           value={paymentReference}
@@ -65,7 +65,7 @@ export default function MobileMoneyDetailsForm({
 
       {flow === MobileMoneyFlow.AGENT && (
         <TextField
-          label="Margem cobrada (MZN) — opcional"
+          label="Margem cobrada (MZN), opcional"
           size="small"
           fullWidth
           type="text"

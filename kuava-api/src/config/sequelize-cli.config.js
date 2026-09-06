@@ -1,8 +1,8 @@
 'use strict';
 
 // Configuração para o sequelize-cli (migrações/seeders). É um ficheiro
-// separado do `database.ts` porque o CLI corre fora do TypeScript/tsx — não
-// consegue importar `env.ts` diretamente — mas usa exatamente as mesmas
+// separado do `database.ts` porque o CLI corre fora do TypeScript/tsx, não
+// consegue importar `env.ts` diretamente, mas usa exatamente as mesmas
 // variáveis de ambiente, para nunca haver duas fontes de verdade sobre a
 // ligação à base de dados.
 require('dotenv').config();
@@ -21,7 +21,7 @@ module.exports = {
     ...base,
     database: process.env.DB_NAME || 'kuava_pos',
   },
-  // Base de dados isolada para os testes automatizados (roadmap item 7) —
+  // Base de dados isolada para os testes automatizados (roadmap item 7),
   // nunca a mesma que o `development`, para os testes poderem apagar/recriar
   // dados livremente sem arriscar o que está a ser usado à mão.
   test: {

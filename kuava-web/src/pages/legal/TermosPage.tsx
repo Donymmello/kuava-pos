@@ -2,8 +2,8 @@ import { Alert, List, ListItem, ListItemText, Typography } from '@mui/material';
 import LegalLayout from './LegalLayout';
 
 // TODO(dono): substituir os campos entre colchetes pelos dados legais reais
-// da empresa (nome legal, NUIT, morada, contactos) assim que definidos —
-// ver legal/termos-de-servico.docx na raiz do repo para a versão .docx
+// da empresa (nome legal, NUIT, morada, contactos) assim que definidos.
+// Ver legal/termos-de-servico.docx na raiz do repo para a versão .docx
 // equivalente, gerada na mesma sessão em que este texto foi escrito.
 const NOME_LEGAL_EMPRESA = '[NOME LEGAL DA EMPRESA]';
 const NUIT_EMPRESA = '[NÚMERO]';
@@ -16,7 +16,7 @@ export default function TermosPage() {
     <LegalLayout title="Termos de Serviço" updatedAt="agosto de 2026">
       <Alert severity="info">
         Nota importante: este documento é um modelo de base e não constitui aconselhamento jurídico.
-        Antes de ser considerado definitivo, deve ser revisto por um advogado moçambicano — em
+        Antes de ser considerado definitivo, deve ser revisto por um advogado moçambicano, em
         particular para confirmar o enquadramento fiscal (emissão de faturas, NUIT), preencher os
         campos entre colchetes com os dados legais reais da empresa, e acompanhar a nova Lei de
         Proteção de Dados Pessoais, aprovada pelo Conselho de Ministros e ainda pendente de aprovação
@@ -47,7 +47,7 @@ export default function TermosPage() {
           <ListItemText primary='"Utilizador": qualquer pessoa com credenciais de acesso ao Serviço em nome de um Estabelecimento (ADMIN, Gerente ou Caixa).' />
         </ListItem>
         <ListItem sx={{ display: 'list-item', pl: 2 }}>
-          <ListItemText primary='"Dados do Estabelecimento": toda a informação inserida pelo Estabelecimento no Serviço — catálogo de produtos, vendas, faturas, dados de clientes finais, definições da conta.' />
+          <ListItemText primary='"Dados do Estabelecimento": toda a informação inserida pelo Estabelecimento no Serviço: catálogo de produtos, vendas, faturas, dados de clientes finais, definições da conta.' />
         </ListItem>
       </List>
 
@@ -60,7 +60,7 @@ export default function TermosPage() {
       <Typography>
         O Estabelecimento é responsável por manter a confidencialidade das credenciais de acesso dos
         seus Utilizadores e por toda a atividade realizada através da sua conta, incluindo a de
-        Utilizadores que já não deveriam ter acesso (ex.: ex-funcionários) — a desativação atempada
+        Utilizadores que já não deveriam ter acesso (ex.: ex-funcionários). A desativação atempada
         desses acessos é da responsabilidade do Estabelecimento, através da sua Conta Administradora.
       </Typography>
       <Typography>
@@ -123,7 +123,7 @@ export default function TermosPage() {
       </Typography>
       <Typography>
         O Estabelecimento é o único responsável pela exatidão fiscal e legal dos documentos (faturas,
-        recibos) emitidos através do Serviço — a Kuava POS é uma ferramenta de apoio à gestão, não um
+        recibos) emitidos através do Serviço. A Kuava POS é uma ferramenta de apoio à gestão, não um
         substituto de aconselhamento contabilístico ou fiscal.
       </Typography>
 
@@ -136,7 +136,7 @@ export default function TermosPage() {
       <Typography>
         O Serviço inclui uma funcionalidade de funcionamento offline no ponto de venda, que permite
         continuar a registar vendas durante quebras de ligação à internet e sincronizá-las
-        automaticamente quando a ligação for restabelecida — esta funcionalidade não elimina a
+        automaticamente quando a ligação for restabelecida. Esta funcionalidade não elimina a
         necessidade de uma ligação à internet para o funcionamento normal do Serviço.
       </Typography>
 

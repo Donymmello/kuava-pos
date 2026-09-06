@@ -7,6 +7,7 @@ import {
   Op,
 } from 'sequelize';
 import { sequelize } from '../config/database';
+import { ProductUnit } from '../types/enums';
 
 export class Product extends Model<InferAttributes<Product>, InferCreationAttributes<Product>> {
   declare id: CreationOptional<string>;
@@ -19,6 +20,15 @@ export class Product extends Model<InferAttributes<Product>, InferCreationAttrib
   declare min_stock_alert: CreationOptional<number>;
   declare tax_rate: CreationOptional<number>;
   declare category: string | null;
+  /** Unidade em que o produto é vendido, UN (padrão) ou uma unidade fracionária (KG/G/L/M). */
+  declare unit: CreationOptional<ProductUnit>;
+  /**
+   * Data de validade (opcional), string "AAAA-MM-DD" (DATEONLY, sem hora),
+   * relevante sobretudo para farmácias. `null` significa "não aplicável"
+   * (a maioria dos produtos de mercearia/ferragens não tem validade a
+   * controlar), nunca "desconhecida".
+   */
+  declare expiry_date: string | null;
   declare is_active: CreationOptional<boolean>;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
@@ -61,17 +71,25 @@ Product.init(
       },
     },
     stock_quantity: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(12, 3),
       allowNull: false,
       defaultValue: 0,
       validate: {
         min: 0,
       },
+      get(this: Product) {
+        const raw = this.getDataValue('stock_quantity');
+        return raw === null || raw === undefined ? raw : parseFloat(raw as unknown as string);
+      },
     },
     min_stock_alert: {
-      type: DataTypes.INTEGER,
+      type: DataTypes.DECIMAL(12, 3),
       allowNull: false,
       defaultValue: 5,
+      get(this: Product) {
+        const raw = this.getDataValue('min_stock_alert');
+        return raw === null || raw === undefined ? raw : parseFloat(raw as unknown as string);
+      },
     },
     tax_rate: {
       type: DataTypes.DECIMAL(5, 4),
@@ -84,6 +102,15 @@ Product.init(
     },
     category: {
       type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    unit: {
+      type: DataTypes.ENUM(...Object.values(ProductUnit)),
+      allowNull: false,
+      defaultValue: ProductUnit.UN,
+    },
+    expiry_date: {
+      type: DataTypes.DATEONLY,
       allowNull: true,
     },
     is_active: {

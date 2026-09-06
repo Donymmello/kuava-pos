@@ -12,11 +12,11 @@ import { AppError } from '../utils/AppError';
 export function tenantMiddleware(req: Request, _res: Response, next: NextFunction): void {
   if (!req.user?.tenantId) {
     // 403, não 401: o token é válido (o utilizador está autenticado), só não
-    // tem acesso a rotas de tenant — é o caso normal de um SUPERADMIN, que
+    // tem acesso a rotas de tenant, é o caso normal de um SUPERADMIN, que
     // nunca tem tenant_id. Um 401 aqui fazia o interceptor global do
     // frontend (kuava-web/src/services/api.ts) tratar isto como "sessão
     // expirada" e terminar a sessão de QUALQUER utilizador, incluindo um
-    // superadmin com sessão perfeitamente válida — foi a causa do bug
+    // superadmin com sessão perfeitamente válida, foi a causa do bug
     // "superadmin entra e sai logo" (2026-08-24).
     throw new AppError('Não foi possível identificar o estabelecimento (tenant) do utilizador', 403);
   }

@@ -16,7 +16,7 @@ const isProduction = nodeEnv === 'production';
 const INSECURE_JWT_SECRET_FALLBACK = 'troque-este-segredo-em-producao';
 
 /**
- * O JWT_SECRET nunca pode cair no valor de exemplo em produção — se isso
+ * O JWT_SECRET nunca pode cair no valor de exemplo em produção, se isso
  * acontecesse, qualquer pessoa com acesso ao código (ex.: este repositório
  * no GitHub) conseguiria forjar tokens válidos para qualquer utilizador,
  * incluindo SUPERADMIN. Fora de produção mantém-se o fallback por

@@ -1,8 +1,8 @@
 /*
  * Impressão do recibo térmico (58/80mm) via window.print().
  * O componente ThermalReceipt fica sempre montado no DOM (dentro de
- * InvoicesPage e PosPage) mas escondido; só fica visível — e é o único
- * conteúdo visível — quando a impressão é despoletada.
+ * InvoicesPage e PosPage) mas escondido; só fica visível, e é o único
+ * conteúdo visível, quando a impressão é despoletada.
  */
 @media screen {
   .print-only {

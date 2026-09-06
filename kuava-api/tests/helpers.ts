@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { Product, Tenant, User } from '../src/models';
-import { UserRole } from '../src/types/enums';
+import { ProductUnit, UserRole } from '../src/types/enums';
 
 export const app = createApp();
 export const api = request(app);
@@ -109,7 +109,14 @@ export async function expireTenantTrial(tenantId: string): Promise<void> {
 /** Cria um produto diretamente no modelo — mais rápido que passar pelo endpoint quando o teste não é sobre o catálogo em si. */
 export async function createTestProduct(
   tenantId: string,
-  overrides: Partial<{ name: string; price: number; stock_quantity: number; tax_rate: number }> = {},
+  overrides: Partial<{
+    name: string;
+    price: number;
+    stock_quantity: number;
+    tax_rate: number;
+    unit: ProductUnit;
+    expiry_date: string | null;
+  }> = {},
 ): Promise<Product> {
   return Product.create({
     tenant_id: tenantId,
@@ -121,5 +128,7 @@ export async function createTestProduct(
     min_stock_alert: 5,
     tax_rate: overrides.tax_rate ?? 0.16,
     category: null,
+    unit: overrides.unit ?? ProductUnit.UN,
+    expiry_date: overrides.expiry_date ?? null,
   });
 }

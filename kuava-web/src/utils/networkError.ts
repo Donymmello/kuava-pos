@@ -5,7 +5,7 @@ interface AxiosLikeError {
 
 /**
  * Verdadeiro quando o erro indica falta de ligação ou servidor inacessível
- * (o axios não recebeu resposta alguma) — distingue de uma rejeição
+ * (o axios não recebeu resposta alguma), distingue de uma rejeição
  * legítima da API (stock insuficiente, validação, permissões, etc.), que
  * deve continuar a ser mostrada ao utilizador em vez de cair para o modo
  * offline.

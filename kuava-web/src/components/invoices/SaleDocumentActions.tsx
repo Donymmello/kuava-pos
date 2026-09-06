@@ -14,7 +14,7 @@ interface SaleDocumentActionsProps {
 }
 
 /**
- * Ações partilhadas de documento de venda — reutilizadas no histórico de
+ * Ações partilhadas de documento de venda, reutilizadas no histórico de
  * faturas e no ecrã de confirmação de venda do POS: descarregar a
  * fatura-recibo em PDF (A4 ou A5) e imprimir o recibo térmico (58/80mm).
  */

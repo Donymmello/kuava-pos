@@ -43,7 +43,7 @@ interface PlanStatus {
 }
 
 // Fase inicial: um único plano pago + 7 dias de teste gratuito, sem
-// gateway de pagamento — o superadmin ativa o plano manualmente depois de
+// gateway de pagamento, o superadmin ativa o plano manualmente depois de
 // o cliente pagar por fora (ver kuava-api/src/services/superadminService.ts).
 function getPlanStatus(tenant: SuperadminTenant): PlanStatus {
   if (tenant.subscription_active) {
@@ -51,7 +51,7 @@ function getPlanStatus(tenant: SuperadminTenant): PlanStatus {
   }
 
   if (!tenant.trial_ends_at) {
-    // Estabelecimento registado antes desta funcionalidade existir — nunca
+    // Estabelecimento registado antes desta funcionalidade existir, nunca
     // teve trial, nunca é bloqueado por isto.
     return { label: 'Sem plano (anterior ao trial)', color: 'default' };
   }
@@ -60,7 +60,7 @@ function getPlanStatus(tenant: SuperadminTenant): PlanStatus {
   const daysLeft = Math.ceil((trialEnd - Date.now()) / (24 * 60 * 60 * 1000));
 
   if (daysLeft > 0) {
-    return { label: `Em teste — ${daysLeft} dia${daysLeft === 1 ? '' : 's'} restante${daysLeft === 1 ? '' : 's'}`, color: 'warning' };
+    return { label: `Em teste: ${daysLeft} dia${daysLeft === 1 ? '' : 's'} restante${daysLeft === 1 ? '' : 's'}`, color: 'warning' };
   }
 
   return { label: 'Teste expirado', color: 'error' };
@@ -99,7 +99,7 @@ export default function SuperadminTenantsPage() {
       setFeedback({
         severity: 'success',
         message: tenant.is_active
-          ? `"${tenant.name}" foi desativado — os utilizadores dele deixam de conseguir iniciar sessão.`
+          ? `"${tenant.name}" foi desativado. Os utilizadores dele deixam de conseguir iniciar sessão.`
           : `"${tenant.name}" foi reativado.`,
       });
       await loadTenants();
@@ -115,7 +115,7 @@ export default function SuperadminTenantsPage() {
       setFeedback({
         severity: 'success',
         message: nextActive
-          ? `Plano de "${tenant.name}" ativado — o estabelecimento já pode entrar mesmo que o teste tenha terminado.`
+          ? `Plano de "${tenant.name}" ativado. O estabelecimento já pode entrar mesmo que o teste tenha terminado.`
           : `Plano de "${tenant.name}" desativado.`,
       });
       await loadTenants();
@@ -152,7 +152,7 @@ export default function SuperadminTenantsPage() {
       await navigator.clipboard.writeText(resetResult.temporaryPassword);
       setFeedback({ severity: 'success', message: 'Senha copiada.' });
     } catch {
-      // Área de transferência indisponível (ex.: contexto não seguro) — a senha continua visível no ecrã para copiar à mão.
+      // Área de transferência indisponível (ex.: contexto não seguro), a senha continua visível no ecrã para copiar à mão.
     }
   }
 
@@ -191,7 +191,7 @@ export default function SuperadminTenantsPage() {
               <TableRow key={tenant.id} hover sx={{ opacity: tenant.is_active ? 1 : 0.6 }}>
                 <TableCell>{tenant.name}</TableCell>
                 <TableCell>{tenant.nuit}</TableCell>
-                <TableCell>{tenant.email || tenant.phone || '—'}</TableCell>
+                <TableCell>{tenant.email || tenant.phone || '-'}</TableCell>
                 <TableCell>{formatDateTime(tenant.created_at)}</TableCell>
                 <TableCell align="center">
                   <Chip
@@ -240,7 +240,7 @@ export default function SuperadminTenantsPage() {
         <DialogContent>
           <DialogContentText>
             Vai ser gerada uma senha temporária nova para o(s) ADMIN(s) ativo(s) de <strong>{resetTarget?.name}</strong>.
-            A senha atual deixa imediatamente de funcionar. Não há forma de desfazer isto — combina com o cliente
+            A senha atual deixa imediatamente de funcionar. Não há forma de desfazer isto: combina com o cliente
             antes de confirmar.
           </DialogContentText>
         </DialogContent>
@@ -258,7 +258,7 @@ export default function SuperadminTenantsPage() {
         <DialogTitle>Senha temporária gerada</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Esta senha só é mostrada uma vez — copia-a e passa-a ao cliente por fora da app (telefone, WhatsApp).
+            Esta senha só é mostrada uma vez: copia-a e passa-a ao cliente por fora da app (telefone, WhatsApp).
             Válida para: {resetResult?.adminEmails.join(', ')}.
           </DialogContentText>
           <Stack direction="row" spacing={1}>

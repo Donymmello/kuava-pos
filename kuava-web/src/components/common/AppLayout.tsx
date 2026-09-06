@@ -27,7 +27,7 @@ import { USER_ROLE_LABELS, UserRole } from '../../types';
 
 // Fase inicial: um único plano pago + 7 dias de teste gratuito, ativado
 // manualmente pelo superadmin (ver SuperadminTenantsPage.tsx). Só o ADMIN
-// vê este aviso — é quem trata do pagamento, não a caixa/gerente do dia a dia.
+// vê este aviso, é quem trata do pagamento, não a caixa/gerente do dia a dia.
 function useTrialBanner(userRole: UserRole | undefined) {
   const [banner, setBanner] = useState<{ label: string; color: 'warning' | 'error' } | null>(null);
 
@@ -50,7 +50,7 @@ function useTrialBanner(userRole: UserRole | undefined) {
             color: 'warning',
           });
         } else {
-          setBanner({ label: 'Teste gratuito terminado — contacte o suporte', color: 'error' });
+          setBanner({ label: 'Teste gratuito terminado: contacte o suporte', color: 'error' });
         }
       })
       .catch(() => undefined);

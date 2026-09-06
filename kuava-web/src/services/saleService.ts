@@ -4,9 +4,9 @@ import { ApiSuccessResponse, MobileMoneyFlow, PaginatedResult, PaymentMethod, Sa
 export interface RegisterSalePayload {
   payment_method: PaymentMethod;
   items: Array<{ product_id: string; quantity: number }>;
-  /** Chave de idempotência opcional — usada ao sincronizar uma venda feita offline. */
+  /** Chave de idempotência opcional, usada ao sincronizar uma venda feita offline. */
   client_ref?: string;
-  /** Obrigatório quando payment_method é MPESA/EMOLA — ver types/index.ts. */
+  /** Obrigatório quando payment_method é MPESA/EMOLA, ver types/index.ts. */
   mobile_money_flow?: MobileMoneyFlow;
   /** Obrigatório quando mobile_money_flow é TRANSFER. */
   payment_reference?: string;

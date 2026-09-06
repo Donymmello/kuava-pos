@@ -2,7 +2,7 @@ export enum UserRole {
   ADMIN = 'ADMIN',
   CASHIER = 'CASHIER',
   MANAGER = 'MANAGER',
-  // Conta do dono da plataforma Kuava, sem tenant_id — gere a lista de
+  // Conta do dono da plataforma Kuava, sem tenant_id, gere a lista de
   // estabelecimentos em /superadmin, nunca aparece dentro de um tenant.
   SUPERADMIN = 'SUPERADMIN',
 }
@@ -15,7 +15,7 @@ export const USER_ROLE_LABELS: Record<UserRole, string> = {
 };
 
 // Papéis que um ADMIN de estabelecimento pode atribuir a um utilizador seu
-// (usado no formulário de gestão de utilizadores) — nunca SUPERADMIN, que
+// (usado no formulário de gestão de utilizadores), nunca SUPERADMIN, que
 // não pertence a nenhum tenant e só existe pelo script seedSuperadmin.ts. A
 // API já rejeita isto (422), mas nem sequer deve aparecer como opção.
 export const TENANT_ASSIGNABLE_ROLES: UserRole[] = [UserRole.ADMIN, UserRole.MANAGER, UserRole.CASHIER];
@@ -39,13 +39,13 @@ export interface Tenant {
   default_tax_rate: number;
   is_active: boolean;
   // Plano/trial (2026-08-24): trial_ends_at é null para estabelecimentos
-  // registados antes desta funcionalidade — nunca ficam bloqueados por isto.
+  // registados antes desta funcionalidade, nunca ficam bloqueados por isto.
   trial_ends_at: string | null;
   subscription_active: boolean;
   created_at: string;
 }
 
-// Vista simplificada de um tenant, devolvida por /api/superadmin/tenants —
+// Vista simplificada de um tenant, devolvida por /api/superadmin/tenants,
 // sem default_tax_rate (não é relevante para o superadmin gerir).
 export interface SuperadminTenant {
   id: string;
@@ -89,7 +89,43 @@ export function isMobileMoneyMethod(method: PaymentMethod): boolean {
 }
 
 /**
- * Como um pagamento M-Pesa/e-Mola foi efetivamente recebido — não existe uma
+ * Unidade de medida em que um produto é vendido. A maioria (mercearias,
+ * bottle stores) vende por unidade inteira (UN); ferragens e negócios
+ * semelhantes muitas vezes vendem por peso/comprimento (arame por metro,
+ * prego por kg, tinta por litro), nesses casos a quantidade pode ser
+ * fracionária (ex.: 2.5 kg), o que UN não permite.
+ */
+export enum ProductUnit {
+  UN = 'UN',
+  KG = 'KG',
+  G = 'G',
+  L = 'L',
+  M = 'M',
+}
+
+export const PRODUCT_UNIT_LABELS: Record<ProductUnit, string> = {
+  [ProductUnit.UN]: 'Unidade',
+  [ProductUnit.KG]: 'Quilograma (kg)',
+  [ProductUnit.G]: 'Grama (g)',
+  [ProductUnit.L]: 'Litro (l)',
+  [ProductUnit.M]: 'Metro (m)',
+};
+
+/** Abreviatura curta para mostrar junto da quantidade (ex.: "2,5 kg"). */
+export const PRODUCT_UNIT_ABBREVIATIONS: Record<ProductUnit, string> = {
+  [ProductUnit.UN]: 'un.',
+  [ProductUnit.KG]: 'kg',
+  [ProductUnit.G]: 'g',
+  [ProductUnit.L]: 'l',
+  [ProductUnit.M]: 'm',
+};
+
+export function isFractionalUnit(unit: ProductUnit): boolean {
+  return unit !== ProductUnit.UN;
+}
+
+/**
+ * Como um pagamento M-Pesa/e-Mola foi efetivamente recebido, não existe uma
  * API C2B simples para um POS pequeno se ligar, por isso a confirmação é
  * sempre manual: ou o cliente transferiu para o número da loja, ou a loja
  * atuou como agente (o cliente levantou e a loja ficou com uma margem).
@@ -115,6 +151,9 @@ export interface Product {
   min_stock_alert: number;
   tax_rate: number;
   category: string | null;
+  unit: ProductUnit;
+  /** "AAAA-MM-DD", ou null quando não há validade a controlar. */
+  expiry_date: string | null;
   is_active: boolean;
   image_url?: string | null;
 }
@@ -127,6 +166,7 @@ export interface CartItem {
   taxRate: number;
   quantity: number;
   stockQuantity: number;
+  unit: ProductUnit;
   imageUrl?: string | null;
 }
 
@@ -217,6 +257,15 @@ export interface TopProduct {
   quantitySold: number;
 }
 
+export interface ExpiringProduct {
+  productId: string;
+  name: string;
+  /** "AAAA-MM-DD" */
+  expiryDate: string;
+  /** Negativo quando já expirou. */
+  daysUntilExpiry: number;
+}
+
 export interface DashboardSummary {
   today: SalesSummary;
   month: SalesSummary & { averageTicket: number };
@@ -225,4 +274,6 @@ export interface DashboardSummary {
   topProducts: TopProduct[];
   lowStockCount: number;
   agentMarginMonth: SalesSummary;
+  expiringCount: number;
+  expiringProducts: ExpiringProduct[];
 }

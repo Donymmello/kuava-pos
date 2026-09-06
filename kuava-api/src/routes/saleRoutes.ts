@@ -11,7 +11,7 @@ router.use(authMiddleware, tenantMiddleware);
 router.get('/', listSales);
 router.get('/:id', getSaleById);
 router.post('/', registerSale);
-// Cancelar uma venda repõe stock e reverte receita — reservado a
+// Cancelar uma venda repõe stock e reverte receita, reservado a
 // ADMIN/MANAGER para evitar que um caixa desfaça vendas sem supervisão.
 router.post('/:id/cancel', requireRole(UserRole.ADMIN, UserRole.MANAGER), cancelSaleHandler);
 

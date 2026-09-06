@@ -1,7 +1,8 @@
 import { Box, Card, CardActionArea, CardContent, Chip, Stack, Typography } from '@mui/material';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
-import { Product } from '../../types';
+import { PRODUCT_UNIT_ABBREVIATIONS, Product } from '../../types';
 import { formatMzn } from '../../utils/currency';
+import { formatQuantity } from '../../utils/quantity';
 
 interface ProductCardProps {
   product: Product;
@@ -55,7 +56,11 @@ export default function ProductCard({ product, onSelect }: ProductCardProps) {
               </Typography>
               <Chip
                 size="small"
-                label={outOfStock ? 'Sem stock' : `${product.stock_quantity} un.`}
+                label={
+                  outOfStock
+                    ? 'Sem stock'
+                    : `${formatQuantity(product.stock_quantity)} ${PRODUCT_UNIT_ABBREVIATIONS[product.unit]}`
+                }
                 color={outOfStock ? 'error' : 'default'}
                 variant={outOfStock ? 'filled' : 'outlined'}
               />

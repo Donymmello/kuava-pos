@@ -6,7 +6,7 @@ import { AppError } from '../utils/AppError';
 
 const SALT_ROUNDS = 10;
 
-// Sem os caracteres ambíguos (0/O, 1/l/I) — esta senha vai ser lida e
+// Sem os caracteres ambíguos (0/O, 1/l/I), esta senha vai ser lida e
 // digitada à mão pelo superadmin e depois pelo cliente ao telefone.
 const TEMP_PASSWORD_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
 
@@ -21,7 +21,7 @@ function generateTemporaryPassword(length = 10): string {
 
 /**
  * Serviços exclusivos do painel de superadmin (o dono da plataforma Kuava a
- * gerir os seus clientes/tenants) — nunca tenant-scoped, ao contrário de
+ * gerir os seus clientes/tenants), nunca tenant-scoped, ao contrário de
  * praticamente todos os outros serviços da app.
  */
 export async function listTenants(): Promise<Tenant[]> {
@@ -42,11 +42,11 @@ export async function setTenantActive(tenantId: string, isActive: boolean): Prom
 }
 
 /**
- * Marca manualmente se um tenant tem um plano pago ativo — mecanismo de
+ * Marca manualmente se um tenant tem um plano pago ativo, mecanismo de
  * confirmação de pagamento deste projeto: sem gateway integrado (mesmo
  * padrão do M-Pesa/e-Mola), o cliente paga por fora e o superadmin ativa o
  * plano aqui. Ativar sempre restaura o login mesmo que o trial de 7 dias já
- * tenha terminado — ver o bloqueio em authService.login().
+ * tenha terminado, ver o bloqueio em authService.login().
  */
 export async function setTenantSubscriptionActive(tenantId: string, active: boolean): Promise<Tenant> {
   const tenant = await Tenant.findByPk(tenantId);
@@ -63,12 +63,12 @@ export async function setTenantSubscriptionActive(tenantId: string, active: bool
 
 /**
  * Único mecanismo de "esqueci a senha" para um ADMIN de estabelecimento:
- * sem serviço de email configurado no projeto, a reposição é sempre manual
- * — o superadmin gera uma senha temporária aqui e passa-a ao cliente por
+ * sem serviço de email configurado no projeto, a reposição é sempre manual:
+ * o superadmin gera uma senha temporária aqui e passa-a ao cliente por
  * fora da app (telefone, WhatsApp, etc.). Repõe a senha de TODOS os
  * ADMINs ativos do tenant (normalmente só um) para a mesma senha
  * temporária, porque não há como saber de fora qual deles está a pedir
- * ajuda — qualquer um consegue entrar com ela e depois trocar a senha.
+ * ajuda, qualquer um consegue entrar com ela e depois trocar a senha.
  */
 export async function resetTenantAdminPassword(
   tenantId: string,

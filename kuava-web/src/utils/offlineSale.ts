@@ -15,7 +15,7 @@ interface BuildLocalSalePreviewParams {
 
 /**
  * Constrói um objeto `Sale` só para mostrar de imediato no ecrã de confirmação
- * (e para a fatura/recibo) de uma venda feita offline — antes de ter um id
+ * (e para a fatura/recibo) de uma venda feita offline, antes de ter um id
  * real do servidor. Os totais vêm do cálculo local do carrinho (mesma lógica
  * de IVA usada em toda a POS); o servidor recalcula tudo de forma autoritativa
  * quando a venda for sincronizada.

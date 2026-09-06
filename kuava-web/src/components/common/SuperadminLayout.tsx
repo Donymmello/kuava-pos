@@ -8,7 +8,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useColorMode } from '../../theme/ColorModeContext';
 
 /**
- * Layout dedicado ao superadmin — deliberadamente mais simples que
+ * Layout dedicado ao superadmin, deliberadamente mais simples que
  * AppLayout: sem navegação de POS/inventário/faturas (que exigem um
  * tenant_id, e o superadmin não tem nenhum) nem indicadores de
  * online/offline (irrelevantes fora do contexto de um estabelecimento).
@@ -35,7 +35,7 @@ export default function SuperadminLayout() {
         <Toolbar sx={{ gap: 0.5 }}>
           <AdminPanelSettingsOutlinedIcon color="primary" sx={{ mr: 1 }} />
           <Typography variant="h6" sx={{ flex: 1, whiteSpace: 'nowrap' }}>
-            Kuava POS — Superadmin
+            Kuava POS · Superadmin
           </Typography>
 
           <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo escuro'}>

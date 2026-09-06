@@ -97,7 +97,7 @@ export default function InvoicesPage() {
             >
               <TableCell>{formatDateTime(sale.created_at)}</TableCell>
               <TableCell>#{sale.id.slice(0, 8).toUpperCase()}</TableCell>
-              <TableCell>{sale.user?.name ?? '—'}</TableCell>
+              <TableCell>{sale.user?.name ?? '-'}</TableCell>
               <TableCell>{PAYMENT_METHOD_LABELS[sale.payment_method]}</TableCell>
               <TableCell align="right">{formatMzn(sale.total_amount)}</TableCell>
               <TableCell align="center">

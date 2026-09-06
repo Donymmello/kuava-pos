@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 import { fetchProductByBarcode } from '../services/productService';
-import { CartItem, isMobileMoneyMethod, MobileMoneyFlow, PaymentMethod, Product } from '../types';
+import { CartItem, isFractionalUnit, isMobileMoneyMethod, MobileMoneyFlow, PaymentMethod, Product } from '../types';
+
+/** Arredonda a 3 casas decimais (kg/g/l/m) ou ao inteiro mais próximo (UN), conforme a unidade do item. */
+function roundQuantityForUnit(item: Pick<CartItem, 'unit'>, quantity: number): number {
+  return isFractionalUnit(item.unit) ? Math.round((quantity + Number.EPSILON) * 1000) / 1000 : Math.round(quantity);
+}
 
 export interface CartTotals {
   subtotal: number;
@@ -12,11 +17,11 @@ export interface CartTotals {
 interface CartState {
   items: CartItem[];
   paymentMethod: PaymentMethod;
-  /** Só relevante quando paymentMethod é MPESA/EMOLA — transferência vs agente. */
+  /** Só relevante quando paymentMethod é MPESA/EMOLA, transferência vs agente. */
   mobileMoneyFlow: MobileMoneyFlow | null;
-  /** Referência da SMS de confirmação — preenchida quando mobileMoneyFlow é TRANSFER. */
+  /** Referência da SMS de confirmação, preenchida quando mobileMoneyFlow é TRANSFER. */
   paymentReference: string;
-  /** Margem/comissão cobrada, como texto (validado/convertido ao finalizar) — preenchida quando mobileMoneyFlow é AGENT. */
+  /** Margem/comissão cobrada, como texto (validado/convertido ao finalizar), preenchida quando mobileMoneyFlow é AGENT. */
   agentMarginAmount: string;
   lastError: string | null;
   isAddingByBarcode: boolean;
@@ -41,7 +46,7 @@ function roundCurrency(value: number): number {
 }
 
 // item.unitPrice é o preço de venda do produto já com IVA incluído (o valor
-// efetivamente cobrado por unidade) — o total da venda é a soma direta das
+// efetivamente cobrado por unidade), o total da venda é a soma direta das
 // linhas; o IVA mostrado é só a fatia discriminada "para trás" a partir de
 // cada linha, para a fatura/recibo, nunca somado por cima. Mantém a mesma
 // lógica usada em kuava-api/src/services/ivaService.ts.
@@ -80,6 +85,7 @@ function productToCartItem(product: Product, quantity: number): CartItem {
     taxRate: product.tax_rate,
     quantity,
     stockQuantity: product.stock_quantity,
+    unit: product.unit,
     imageUrl: product.image_url ?? null,
   };
 }
@@ -160,7 +166,7 @@ export const useCartStore = create<CartState>((set, get) => ({
       return {
         items: state.items.map((item) =>
           item.productId === productId
-            ? { ...item, quantity: Math.min(quantity, item.stockQuantity) }
+            ? { ...item, quantity: roundQuantityForUnit(item, Math.min(quantity, item.stockQuantity)) }
             : item,
         ),
       };

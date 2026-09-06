@@ -88,3 +88,42 @@ describe('painel — agrupamento por dia em hora de Maputo (UTC+2)', () => {
     expect(byDate.get(maputoDateKey(todayEarlyInstant))).toBe(250);
   });
 });
+
+describe('painel — alerta de validade (farmácias e semelhantes)', () => {
+  it('conta e lista produtos ativos a expirar nos próximos 30 dias, ignorando os sem validade ou fora da janela', async () => {
+    const tenant = await registerTestTenant();
+
+    function isoDateInDays(days: number): string {
+      return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+    }
+
+    // Já expirado — deve entrar no alerta.
+    const expired = await createTestProduct(tenant.tenantId, {
+      name: 'Xarope expirado',
+      expiry_date: isoDateInDays(-2),
+    });
+    // Dentro da janela de 30 dias — deve entrar.
+    const soonToExpire = await createTestProduct(tenant.tenantId, {
+      name: 'Paracetamol quase a expirar',
+      expiry_date: isoDateInDays(10),
+    });
+    // Fora da janela — não deve entrar.
+    await createTestProduct(tenant.tenantId, {
+      name: 'Vitamina C (validade longe)',
+      expiry_date: isoDateInDays(90),
+    });
+    // Sem validade — nunca entra no alerta.
+    await createTestProduct(tenant.tenantId, { name: 'Vassoura' });
+
+    const res = await api.get('/api/dashboard/summary').set('Authorization', `Bearer ${tenant.token}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.expiringCount).toBe(2);
+
+    const namesInAlert = res.body.data.expiringProducts.map((p: { name: string }) => p.name);
+    expect(namesInAlert).toContain(expired.name);
+    expect(namesInAlert).toContain(soonToExpire.name);
+
+    const expiredEntry = res.body.data.expiringProducts.find((p: { name: string }) => p.name === expired.name);
+    expect(expiredEntry.daysUntilExpiry).toBeLessThan(0);
+  });
+});

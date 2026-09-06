@@ -34,10 +34,17 @@ SaleItem.init(
       allowNull: false,
     },
     quantity: {
-      type: DataTypes.INTEGER,
+      // DECIMAL, não INTEGER: produtos vendidos por peso/comprimento (ver
+      // ProductUnit em types/enums.ts) podem ter quantidade fracionária,
+      // ex.: 2.5 kg de prego.
+      type: DataTypes.DECIMAL(12, 3),
       allowNull: false,
       validate: {
-        min: 1,
+        min: 0.001,
+      },
+      get(this: SaleItem) {
+        const raw = this.getDataValue('quantity');
+        return raw === null || raw === undefined ? raw : parseFloat(raw as unknown as string);
       },
     },
     unit_price: {

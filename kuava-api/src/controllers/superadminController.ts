@@ -56,7 +56,7 @@ export async function setTenantActiveHandler(
     if (typeof subscriptionActive === 'boolean') {
       tenant = await setTenantSubscriptionActive(req.params.id, subscriptionActive);
       message = subscriptionActive
-        ? 'Plano ativado com sucesso — o estabelecimento já pode entrar mesmo que o teste tenha terminado'
+        ? 'Plano ativado com sucesso. O estabelecimento já pode entrar mesmo que o teste tenha terminado'
         : 'Plano desativado';
     }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { api, createTestProduct, createTestUser, registerTestTenant } from './helpers';
+import { ProductUnit } from '../src/types/enums';
 
 describe('vendas e stock', () => {
   it('regista uma venda, calcula o total com IVA e dá baixa no stock', async () => {
@@ -123,6 +124,54 @@ describe('vendas e stock', () => {
       .post(`/api/sales/${sale.body.data.id}/cancel`)
       .set('Authorization', `Bearer ${cashier.token}`);
     expect(cancel.status).toBe(403);
+  });
+});
+
+describe('quantidades fracionárias (produtos vendidos por peso/comprimento)', () => {
+  it('aceita e regista uma venda com quantidade fracionária para um produto em KG', async () => {
+    const tenant = await registerTestTenant();
+    const product = await createTestProduct(tenant.tenantId, {
+      price: 200,
+      stock_quantity: 10,
+      unit: ProductUnit.KG,
+    });
+
+    const res = await api
+      .post('/api/sales')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({
+        payment_method: 'CASH',
+        items: [{ product_id: product.id, quantity: 2.5 }],
+      });
+
+    expect(res.status).toBe(201);
+    // 2.5 kg * 200 MZN/kg = 500 MZN.
+    expect(res.body.data.total_amount).toBeCloseTo(500);
+    expect(res.body.data.items[0].quantity).toBeCloseTo(2.5);
+
+    await product.reload();
+    expect(product.stock_quantity).toBeCloseTo(7.5);
+  });
+
+  it('rejeita uma quantidade fracionária para um produto vendido por unidade inteira (UN)', async () => {
+    const tenant = await registerTestTenant();
+    const product = await createTestProduct(tenant.tenantId, {
+      stock_quantity: 10,
+      unit: ProductUnit.UN,
+    });
+
+    const res = await api
+      .post('/api/sales')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({
+        payment_method: 'CASH',
+        items: [{ product_id: product.id, quantity: 1.5 }],
+      });
+
+    expect(res.status).toBe(422);
+
+    await product.reload();
+    expect(product.stock_quantity).toBe(10);
   });
 });
 

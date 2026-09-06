@@ -2,13 +2,14 @@ import jsPDF from 'jspdf';
 import { getSaleItemProductName, MOBILE_MONEY_FLOW_LABELS, MobileMoneyFlow, PAYMENT_METHOD_LABELS, Sale, Tenant } from '../types';
 import { formatMzn } from './currency';
 import { formatDateTime } from './date';
+import { formatQuantity } from './quantity';
 
 export type InvoiceFormat = 'a4' | 'a5';
 
 /**
  * Gera e descarrega uma fatura-recibo em PDF para a venda indicada, usando os
  * dados do estabelecimento (nome, NUIT, morada, contacto) no cabeçalho.
- * Funciona inteiramente no browser (jsPDF) — não depende de nenhum endpoint
+ * Funciona inteiramente no browser (jsPDF), não depende de nenhum endpoint
  * novo no backend, já que toda a informação já vem de GET /sales/:id e
  * GET /tenants/me.
  */
@@ -62,7 +63,7 @@ export function generateInvoicePdf(sale: Sale, tenant: Tenant, format: InvoiceFo
   y += isA5 ? 4.5 : 5.5;
 
   doc.text(`Data: ${formatDateTime(sale.created_at)}`, marginX, y);
-  doc.text(`Operador: ${sale.user?.name ?? '—'}`, pageWidth - marginX, y, { align: 'right' });
+  doc.text(`Operador: ${sale.user?.name ?? '-'}`, pageWidth - marginX, y, { align: 'right' });
   y += 4;
   doc.text(`Pagamento: ${PAYMENT_METHOD_LABELS[sale.payment_method]}`, marginX, y);
   y += isA5 ? 4.5 : 5.5;
@@ -131,7 +132,7 @@ export function generateInvoicePdf(sale: Sale, tenant: Tenant, format: InvoiceFo
     lines.forEach((line, index) => {
       doc.text(line, colProduct, y + index * lineHeight);
     });
-    doc.text(String(item.quantity), colQty, y, { align: 'right' });
+    doc.text(formatQuantity(item.quantity), colQty, y, { align: 'right' });
     doc.text(formatMzn(item.unit_price), colPrice, y, { align: 'right' });
     doc.text(formatMzn(item.subtotal), colSubtotal, y, { align: 'right' });
     y += rowHeight + 1.5;
@@ -167,7 +168,7 @@ export function generateInvoicePdf(sale: Sale, tenant: Tenant, format: InvoiceFo
   doc.setFont('helvetica', 'italic');
   doc.setFontSize(smallSize);
   doc.setTextColor(120, 120, 120);
-  doc.text('Documento processado por computador — Kuava POS', marginX, pageHeight - (isA5 ? 10 : 14));
+  doc.text('Documento processado por computador · Kuava POS', marginX, pageHeight - (isA5 ? 10 : 14));
   doc.text('Obrigado pela preferência!', marginX, pageHeight - (isA5 ? 6 : 9));
 
   doc.save(`fatura-${sale.id.slice(0, 8).toLowerCase()}.pdf`);

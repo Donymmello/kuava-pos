@@ -1,7 +1,20 @@
 import { FormEvent, useState } from 'react';
 import { Link as RouterLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Alert, Box, Button, Link, Paper, Stack, TextField, Typography } from '@mui/material';
+import {
+  Alert,
+  Box,
+  Button,
+  IconButton,
+  InputAdornment,
+  Link,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useAuthStore } from '../../store/useAuthStore';
 import { UserRole } from '../../types';
 
@@ -16,6 +29,7 @@ function defaultRouteForRole(role: UserRole | undefined): string {
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const user = useAuthStore((state) => state.user);
   const isLoading = useAuthStore((state) => state.isLoading);
@@ -80,12 +94,26 @@ export default function LoginPage() {
 
           <TextField
             label="Senha"
-            type="password"
+            type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(event) => setPassword(event.target.value)}
             autoComplete="current-password"
             required
             fullWidth
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                    onClick={() => setShowPassword((current) => !current)}
+                    edge="end"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
           />
 
           <Button type="submit" variant="contained" size="large" disabled={isLoading} fullWidth>

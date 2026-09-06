@@ -17,7 +17,7 @@ export class Tenant extends Model<InferAttributes<Tenant>, InferCreationAttribut
   declare default_tax_rate: CreationOptional<number>;
   declare is_active: CreationOptional<boolean>;
   // Plano/trial (2026-08-24): trial_ends_at fica null para tenants criados
-  // antes desta funcionalidade — só um registo novo (authService.registerTenant)
+  // antes desta funcionalidade, só um registo novo (authService.registerTenant)
   // define os dois. subscription_active=true por omissão (ver a migração)
   // é o que mantém os tenants antigos a funcionar sem qualquer mudança.
   declare trial_ends_at: Date | null;

@@ -5,10 +5,12 @@ import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
+import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import StatTile from '../../components/dashboard/StatTile';
 import SalesTrendChart from '../../components/dashboard/SalesTrendChart';
 import PaymentMethodBreakdown from '../../components/dashboard/PaymentMethodBreakdown';
 import TopProductsList from '../../components/dashboard/TopProductsList';
+import ExpiringProductsList from '../../components/dashboard/ExpiringProductsList';
 import { fetchDashboardSummary } from '../../services/dashboardService';
 import { DashboardSummary } from '../../types';
 import { formatMzn } from '../../utils/currency';
@@ -96,6 +98,17 @@ export default function DashboardPage() {
             icon={<WarningAmberOutlinedIcon fontSize="small" color={summary.lowStockCount > 0 ? 'warning' : 'action'} />}
           />
         </Grid>
+        {summary.expiringCount > 0 && (
+          <Grid item xs={12} sm={6} md={3}>
+            <StatTile
+              label="A expirar (30 dias)"
+              value={String(summary.expiringCount)}
+              sublabel="produtos a verificar"
+              accent="warning"
+              icon={<EventBusyOutlinedIcon fontSize="small" color="warning" />}
+            />
+          </Grid>
+        )}
         {summary.agentMarginMonth.count > 0 && (
           <Grid item xs={12} sm={6} md={3}>
             <StatTile
@@ -118,6 +131,11 @@ export default function DashboardPage() {
         <Grid item xs={12} md={5}>
           <TopProductsList data={summary.topProducts} />
         </Grid>
+        {summary.expiringProducts.length > 0 && (
+          <Grid item xs={12} md={5}>
+            <ExpiringProductsList data={summary.expiringProducts} />
+          </Grid>
+        )}
       </Grid>
     </Box>
   );

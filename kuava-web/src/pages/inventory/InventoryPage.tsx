@@ -31,8 +31,20 @@ import {
   updateProduct,
 } from '../../services/productService';
 import { fetchTenant } from '../../services/tenantService';
-import { Product } from '../../types';
+import { PRODUCT_UNIT_ABBREVIATIONS, Product } from '../../types';
 import { formatMzn } from '../../utils/currency';
+import { formatQuantity } from '../../utils/quantity';
+
+const EXPIRY_WARNING_WINDOW_DAYS = 30;
+
+/** dias até `expiryDate` (negativo se já passou), contando a partir de hoje. */
+function daysUntil(expiryDate: string): number {
+  const today = new Date();
+  const todayUtcMidnight = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  const [year, month, day] = expiryDate.slice(0, 10).split('-').map(Number);
+  const expiryUtcMidnight = Date.UTC(year, month - 1, day);
+  return Math.round((expiryUtcMidnight - todayUtcMidnight) / 86_400_000);
+}
 
 const FALLBACK_DEFAULT_TAX_RATE_PERCENT = '16';
 
@@ -162,6 +174,7 @@ export default function InventoryPage() {
             <TableCell align="right">Custo</TableCell>
             <TableCell align="right">Stock</TableCell>
             <TableCell align="right">IVA</TableCell>
+            <TableCell align="center">Validade</TableCell>
             <TableCell align="center">Estado</TableCell>
             <TableCell align="right">Ações</TableCell>
           </TableRow>
@@ -169,29 +182,47 @@ export default function InventoryPage() {
         <TableBody>
           {!loading && filteredProducts.length === 0 && (
             <TableRow>
-              <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+              <TableCell colSpan={10} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                 Nenhum produto encontrado.
               </TableCell>
             </TableRow>
           )}
           {filteredProducts.map((product) => {
             const lowStock = product.is_active && product.stock_quantity <= product.min_stock_alert;
+            const expiryDays = product.expiry_date ? daysUntil(product.expiry_date) : null;
+            const expiryUrgent = expiryDays !== null && expiryDays <= EXPIRY_WARNING_WINDOW_DAYS;
             return (
               <TableRow key={product.id} hover sx={{ opacity: product.is_active ? 1 : 0.6 }}>
                 <TableCell>{product.name}</TableCell>
-                <TableCell>{product.barcode ?? '—'}</TableCell>
-                <TableCell>{product.category ?? '—'}</TableCell>
+                <TableCell>{product.barcode ?? '-'}</TableCell>
+                <TableCell>{product.category ?? '-'}</TableCell>
                 <TableCell align="right">{formatMzn(product.price)}</TableCell>
                 <TableCell align="right">{formatMzn(product.cost_price)}</TableCell>
                 <TableCell align="right">
                   <Chip
                     size="small"
-                    label={product.stock_quantity}
+                    label={`${formatQuantity(product.stock_quantity)} ${PRODUCT_UNIT_ABBREVIATIONS[product.unit]}`}
                     color={lowStock ? 'warning' : 'default'}
                     variant={lowStock ? 'filled' : 'outlined'}
                   />
                 </TableCell>
                 <TableCell align="right">{Math.round(product.tax_rate * 10000) / 100}%</TableCell>
+                <TableCell align="center">
+                  {product.expiry_date ? (
+                    <Chip
+                      size="small"
+                      label={
+                        expiryDays !== null && expiryDays < 0
+                          ? 'Expirado'
+                          : new Date(`${product.expiry_date}T00:00:00`).toLocaleDateString('pt-MZ')
+                      }
+                      color={expiryUrgent ? 'error' : 'default'}
+                      variant={expiryUrgent ? 'filled' : 'outlined'}
+                    />
+                  ) : (
+                    '-'
+                  )}
+                </TableCell>
                 <TableCell align="center">
                   <Chip
                     size="small"

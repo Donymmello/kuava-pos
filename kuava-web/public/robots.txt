@@ -1,0 +1,15 @@
+# Kuava POS é uma aplicação de página única: a landing pública fica em "/",
+# as restantes rotas (/login, /register, /termos, /politica) também são
+# públicas mas de baixo interesse para pesquisa, e tudo o resto exige sessão
+# iniciada — não há nada a ganhar em indexar essas páginas (um crawler sem
+# sessão só vê o ecrã de login).
+User-agent: *
+Allow: /
+Disallow: /pos
+Disallow: /dashboard
+Disallow: /inventory
+Disallow: /invoices
+Disallow: /settings
+Disallow: /superadmin
+
+Sitemap: https://kuava.vektramz.com/sitemap.xml

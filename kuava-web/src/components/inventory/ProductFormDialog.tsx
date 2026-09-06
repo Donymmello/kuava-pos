@@ -6,10 +6,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  MenuItem,
   Stack,
   TextField,
 } from '@mui/material';
-import { Product } from '../../types';
+import { isFractionalUnit, PRODUCT_UNIT_LABELS, Product, ProductUnit } from '../../types';
 import { ProductInput } from '../../services/productService';
 
 interface ProductFormDialogProps {
@@ -31,6 +32,9 @@ interface FormFields {
   stockQuantity: string;
   minStockAlert: string;
   taxRatePercent: string;
+  unit: ProductUnit;
+  /** "AAAA-MM-DD", ou '' para "sem validade a controlar". */
+  expiryDate: string;
 }
 
 function emptyForm(defaultTaxRatePercent: string): FormFields {
@@ -43,6 +47,8 @@ function emptyForm(defaultTaxRatePercent: string): FormFields {
     stockQuantity: '0',
     minStockAlert: '5',
     taxRatePercent: defaultTaxRatePercent,
+    unit: ProductUnit.UN,
+    expiryDate: '',
   };
 }
 
@@ -56,6 +62,8 @@ function productToForm(product: Product): FormFields {
     stockQuantity: String(product.stock_quantity),
     minStockAlert: String(product.min_stock_alert),
     taxRatePercent: String(Math.round(product.tax_rate * 10000) / 100),
+    unit: product.unit,
+    expiryDate: product.expiry_date ?? '',
   };
 }
 
@@ -100,15 +108,23 @@ export default function ProductFormDialog({
       return;
     }
 
+    // Produtos por unidade inteira (UN) mantêm stock em números inteiros;
+    // produtos por peso/comprimento (KG/G/L/M) podem ter stock fracionário
+    // (ex.: 12.5 kg em armazém), só arredonda a 3 casas decimais.
+    const roundQuantity = (value: number): number =>
+      isFractionalUnit(fields.unit) ? Math.round(value * 1000) / 1000 : Math.trunc(value);
+
     const payload: ProductInput = {
       name: fields.name.trim(),
       barcode: fields.barcode.trim() || null,
       category: fields.category.trim() || null,
       price,
       cost_price: Number(fields.costPrice) || 0,
-      stock_quantity: Math.max(0, Math.trunc(Number(fields.stockQuantity) || 0)),
-      min_stock_alert: Math.max(0, Math.trunc(Number(fields.minStockAlert) || 0)),
+      stock_quantity: Math.max(0, roundQuantity(Number(fields.stockQuantity) || 0)),
+      min_stock_alert: Math.max(0, roundQuantity(Number(fields.minStockAlert) || 0)),
       tax_rate: Math.max(0, Number(fields.taxRatePercent) || 0) / 100,
+      unit: fields.unit,
+      expiry_date: fields.expiryDate || null,
     };
 
     setSubmitting(true);
@@ -156,7 +172,7 @@ export default function ProductFormDialog({
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
                 label="Preço de venda (MZN, IVA incluído)"
-                helperText="Valor final cobrado ao cliente — o IVA já vai incluído neste preço."
+                helperText="Valor final cobrado ao cliente. O IVA já vai incluído neste preço."
                 type="number"
                 inputProps={{ min: 0, step: '0.01' }}
                 value={fields.price}
@@ -176,9 +192,39 @@ export default function ProductFormDialog({
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <TextField
+                select
+                label="Vende-se por"
+                value={fields.unit}
+                onChange={(event) => updateField('unit', event.target.value as ProductUnit)}
+                helperText={
+                  isFractionalUnit(fields.unit)
+                    ? 'Permite quantidades com casas decimais (ex.: 2,5 kg) na venda e no stock.'
+                    : undefined
+                }
+                fullWidth
+              >
+                {Object.values(ProductUnit).map((unit) => (
+                  <MenuItem key={unit} value={unit}>
+                    {PRODUCT_UNIT_LABELS[unit]}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Validade (opcional)"
+                type="date"
+                value={fields.expiryDate}
+                onChange={(event) => updateField('expiryDate', event.target.value)}
+                helperText="Deixe em branco se não aplicável. Aparece no alerta de validade do painel."
+                InputLabelProps={{ shrink: true }}
+                fullWidth
+              />
+            </Stack>
+
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField
                 label="Stock atual"
                 type="number"
-                inputProps={{ min: 0, step: '1' }}
+                inputProps={{ min: 0, step: isFractionalUnit(fields.unit) ? '0.001' : '1' }}
                 value={fields.stockQuantity}
                 onChange={(event) => updateField('stockQuantity', event.target.value)}
                 fullWidth
@@ -186,7 +232,7 @@ export default function ProductFormDialog({
               <TextField
                 label="Alerta de stock mínimo"
                 type="number"
-                inputProps={{ min: 0, step: '1' }}
+                inputProps={{ min: 0, step: isFractionalUnit(fields.unit) ? '0.001' : '1' }}
                 value={fields.minStockAlert}
                 onChange={(event) => updateField('minStockAlert', event.target.value)}
                 fullWidth

@@ -181,19 +181,19 @@ export default function SettingsPage() {
               <Typography variant="caption" color="text.secondary">
                 Morada
               </Typography>
-              <Typography variant="body1">{tenant.address || '—'}</Typography>
+              <Typography variant="body1">{tenant.address || '-'}</Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <Typography variant="caption" color="text.secondary">
                 Telefone
               </Typography>
-              <Typography variant="body1">{tenant.phone || '—'}</Typography>
+              <Typography variant="body1">{tenant.phone || '-'}</Typography>
             </Grid>
             <Grid item xs={12} sm={6} md={4}>
               <Typography variant="caption" color="text.secondary">
                 Email
               </Typography>
-              <Typography variant="body1">{tenant.email || '—'}</Typography>
+              <Typography variant="body1">{tenant.email || '-'}</Typography>
             </Grid>
           </Grid>
         </Paper>

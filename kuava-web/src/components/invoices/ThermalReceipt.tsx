@@ -3,6 +3,7 @@ import { Box, Typography } from '@mui/material';
 import { getSaleItemProductName, MOBILE_MONEY_FLOW_LABELS, MobileMoneyFlow, PAYMENT_METHOD_LABELS, Sale, Tenant } from '../../types';
 import { formatMzn } from '../../utils/currency';
 import { formatDateTime } from '../../utils/date';
+import { formatQuantity } from '../../utils/quantity';
 
 interface ThermalReceiptProps {
   sale: Sale | null;
@@ -15,7 +16,7 @@ function Divider() {
 
 /**
  * Marcação impressa numa impressora térmica (58/80mm) via window.print().
- * Fica sempre montada mas invisível no ecrã (ver src/styles/print.css) —
+ * Fica sempre montada mas invisível no ecrã (ver src/styles/print.css),
  * só aparece quando o diálogo de impressão do browser é aberto, altura em
  * que passa a ser o único conteúdo visível na página.
  */
@@ -54,7 +55,7 @@ export default function ThermalReceipt({ sale, tenant }: ThermalReceiptProps) {
 
         <Typography sx={{ fontFamily: 'inherit' }}>Recibo Nº {sale.id.slice(0, 8).toUpperCase()}</Typography>
         <Typography sx={{ fontFamily: 'inherit' }}>{formatDateTime(sale.created_at)}</Typography>
-        <Typography sx={{ fontFamily: 'inherit' }}>Operador: {sale.user?.name ?? '—'}</Typography>
+        <Typography sx={{ fontFamily: 'inherit' }}>Operador: {sale.user?.name ?? '-'}</Typography>
 
         <Divider />
 
@@ -63,7 +64,7 @@ export default function ThermalReceipt({ sale, tenant }: ThermalReceiptProps) {
             <Typography sx={{ fontFamily: 'inherit' }}>{getSaleItemProductName(item)}</Typography>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', fontFamily: 'inherit' }}>
               <span>
-                {item.quantity} x {formatMzn(item.unit_price)}
+                {formatQuantity(item.quantity)} x {formatMzn(item.unit_price)}
               </span>
               <span>{formatMzn(item.subtotal)}</span>
             </Box>

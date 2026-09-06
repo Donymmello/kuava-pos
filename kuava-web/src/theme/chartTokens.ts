@@ -4,7 +4,7 @@ import { PaymentMethod } from '../types';
  * Paleta categórica para identificar métodos de pagamento nos gráficos do
  * painel. A ordem é fixa (nunca reordenada por valor/ranking) e corresponde
  * aos 4 primeiros slots da paleta de referência validada pela skill de
- * dataviz — CVD ΔE e contraste confirmados com scripts/validate_palette.js
+ * dataviz, CVD ΔE e contraste confirmados com scripts/validate_palette.js
  * para os modos claro e escuro (ver notas em kuava_pos_backend.md).
  */
 export const PAYMENT_METHOD_COLORS: Record<PaymentMethod, { light: string; dark: string }> = {

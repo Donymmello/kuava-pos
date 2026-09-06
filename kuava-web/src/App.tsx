@@ -38,7 +38,7 @@ export default function App() {
 
   useEffect(() => {
     // Arranca a deteção de online/offline e uma tentativa inicial de
-    // sincronizar vendas pendentes — uma única vez, para a app inteira.
+    // sincronizar vendas pendentes, uma única vez, para a app inteira.
     useOfflineStore.getState().init();
   }, []);
 

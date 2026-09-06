@@ -10,7 +10,7 @@ import { UserRole } from '../types/enums';
 
 export class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   declare id: CreationOptional<string>;
-  // null só para SUPERADMIN — todos os outros papéis pertencem sempre a um
+  // null só para SUPERADMIN, todos os outros papéis pertencem sempre a um
   // estabelecimento.
   declare tenant_id: string | null;
   declare name: string;

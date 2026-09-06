@@ -1,5 +1,5 @@
 /**
- * Cria (ou atualiza a senha de) a conta de superadmin da plataforma —
+ * Cria (ou atualiza a senha de) a conta de superadmin da plataforma,
  * corre-se uma vez, fora da app, nunca por um endpoint público de registo.
  *
  * Uso: SUPERADMIN_EMAIL=... SUPERADMIN_PASSWORD=... npm run seed:superadmin

@@ -1,8 +1,8 @@
 import { UniqueConstraintError } from 'sequelize';
 import { sequelize, Product, Sale, SaleItem } from '../models';
-import { MobileMoneyFlow, PaymentMethod, SaleStatus } from '../types/enums';
+import { isFractionalUnit, MobileMoneyFlow, PaymentMethod, SaleStatus } from '../types/enums';
 import { AppError } from '../utils/AppError';
-import { calculateLineTotals, roundCurrency } from './ivaService';
+import { calculateLineTotals, roundCurrency, roundQuantity } from './ivaService';
 
 const MOBILE_MONEY_METHODS: ReadonlySet<PaymentMethod> = new Set([PaymentMethod.MPESA, PaymentMethod.EMOLA]);
 
@@ -24,15 +24,15 @@ export interface CreateSaleInput {
   clientRef?: string;
   /**
    * Opcional, só relevante quando paymentMethod é MPESA/EMOLA: distingue
-   * transferência normal de levantamento como agente — não existe API C2B
+   * transferência normal de levantamento como agente, não existe API C2B
    * simples para um POS pequeno se ligar, por isso a confirmação é sempre
    * manual. Fica de fora deliberadamente do fluxo obrigatório de finalizar a
    * venda, para não atrasar o caixa; quando indicado, tem de ser válido.
    */
   mobileMoneyFlow?: MobileMoneyFlow;
-  /** Opcional — referência da SMS de confirmação, quando mobileMoneyFlow é TRANSFER. */
+  /** Opcional, referência da SMS de confirmação, quando mobileMoneyFlow é TRANSFER. */
   paymentReference?: string;
-  /** Opcional — margem/comissão retida pela loja, quando mobileMoneyFlow é AGENT; se indicada, não pode ser negativa. */
+  /** Opcional, margem/comissão retida pela loja, quando mobileMoneyFlow é AGENT; se indicada, não pode ser negativa. */
   agentMarginAmount?: number;
 }
 
@@ -127,11 +127,11 @@ export async function createSale(input: CreateSaleInput): Promise<SaleWithItems>
     throw new AppError('Método de pagamento inválido', 422);
   }
 
-  // M-Pesa/e-Mola não têm uma API C2B simples de ligar a um POS pequeno —
+  // M-Pesa/e-Mola não têm uma API C2B simples de ligar a um POS pequeno:
   // a confirmação é sempre manual, e distinguimos como o dinheiro chegou:
   // transferência normal (com referência da SMS) ou levantamento como agente
   // (com a margem/comissão que a loja fica a reter). Nada disto é obrigatório
-  // — o caixa pode finalizar sem indicar nada, para não travar o atendimento —
+  // (o caixa pode finalizar sem indicar nada, para não travar o atendimento),
   // mas se ele indicar alguma coisa, tem de fazer sentido.
   if (MOBILE_MONEY_METHODS.has(input.paymentMethod)) {
     if (input.mobileMoneyFlow && !Object.values(MobileMoneyFlow).includes(input.mobileMoneyFlow)) {
@@ -150,7 +150,7 @@ export async function createSale(input: CreateSaleInput): Promise<SaleWithItems>
 
   // Reenvio de uma venda já sincronizada (ex.: o POS tentou sincronizar,
   // recebeu a resposta mas perdeu a ligação antes de a confirmar, e voltou
-  // a tentar) — devolve a venda existente em vez de a duplicar.
+  // a tentar), devolve a venda existente em vez de a duplicar.
   if (input.clientRef) {
     const existing = await findSaleWithItemsByClientRef(input.tenantId, input.clientRef);
     if (existing) {
@@ -207,19 +207,33 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
         throw new AppError(`Quantidade inválida para o produto "${product.name}"`, 422);
       }
 
-      if (product.stock_quantity < requestedItem.quantity) {
+      // Produtos vendidos por unidade inteira (UN) não podem ter quantidade
+      // fracionária (ex.: 2.5 latas não faz sentido), só produtos vendidos
+      // por peso/comprimento (KG/G/L/M, ver ProductUnit) permitem isso.
+      const quantity = isFractionalUnit(product.unit)
+        ? roundQuantity(requestedItem.quantity)
+        : Math.round(requestedItem.quantity);
+
+      if (!isFractionalUnit(product.unit) && quantity !== requestedItem.quantity) {
+        throw new AppError(
+          `"${product.name}" vende-se por unidade inteira, indique uma quantidade sem casas decimais`,
+          422,
+        );
+      }
+
+      if (product.stock_quantity < quantity) {
         throw new AppError(
           `Stock insuficiente para "${product.name}". Disponível: ${product.stock_quantity}`,
           409,
         );
       }
 
-      // product.price já inclui IVA (é o preço final cobrado ao cliente) —
+      // product.price já inclui IVA (é o preço final cobrado ao cliente),
       // `total` é o valor da linha tal como pago; `taxAmount` é só a fatia de
       // IVA discriminada "para trás" a partir desse valor, para a fatura.
       const { taxAmount: lineTax, total: lineTotal } = calculateLineTotals(
         product.price,
-        requestedItem.quantity,
+        quantity,
         product.tax_rate,
       );
 
@@ -229,7 +243,7 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
       itemsToCreate.push({
         product_id: product.id,
         product_name: product.name,
-        quantity: requestedItem.quantity,
+        quantity,
         unit_price: product.price,
         subtotal: lineTotal,
       });

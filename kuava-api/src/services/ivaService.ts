@@ -9,6 +9,16 @@ export function roundCurrency(value: number): number {
 }
 
 /**
+ * Arredonda uma quantidade a 3 casas decimais, precisão suficiente para
+ * produtos vendidos por peso/comprimento (kg, g, l, m) sem acumular erro de
+ * vírgula flutuante, e coerente com a coluna DECIMAL(12,3) usada para
+ * `stock_quantity`/`quantity`.
+ */
+export function roundQuantity(value: number): number {
+  return Math.round((value + Number.EPSILON) * 1000) / 1000;
+}
+
+/**
  * Calcula o valor do IVA embutido num determinado montante final (o IVA já
  * incluído no preço, não um imposto a somar por cima).
  * @param finalAmount Valor final, já com IVA incluído (o que o cliente paga).
@@ -30,11 +40,11 @@ export interface LineItemTotals {
  * Calcula o total, o IVA e a base (sem IVA) de uma linha de venda, dado o
  * preço unitário, a quantidade e a taxa de imposto específica do produto.
  *
- * `unitPrice` é o preço de venda tal como registado no produto — já com IVA
+ * `unitPrice` é o preço de venda tal como registado no produto, já com IVA
  * incluído, é o valor efetivamente cobrado ao cliente por unidade (prática
  * comum no retalho: o preço afixado é o preço final). O IVA e a base são
  * calculados "para trás" a partir desse total, só para efeitos de
- * discriminação na fatura/recibo — nunca são somados por cima do preço.
+ * discriminação na fatura/recibo, nunca são somados por cima do preço.
  */
 export function calculateLineTotals(unitPrice: number, quantity: number, taxRate: number): LineItemTotals {
   const total = roundCurrency(unitPrice * quantity);

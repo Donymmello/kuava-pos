@@ -24,6 +24,15 @@ export interface TopProduct {
   quantitySold: number;
 }
 
+export interface ExpiringProduct {
+  productId: string;
+  name: string;
+  /** "AAAA-MM-DD" */
+  expiryDate: string;
+  /** Negativo quando já expirou. */
+  daysUntilExpiry: number;
+}
+
 export interface DashboardSummary {
   today: SalesSummary;
   month: SalesSummary & { averageTicket: number };
@@ -33,12 +42,19 @@ export interface DashboardSummary {
   lowStockCount: number;
   /** Total de margens/comissões retidas como agente M-Pesa/e-Mola este mês. */
   agentMarginMonth: SalesSummary;
+  /** Produtos ativos, com validade preenchida, a expirar nos próximos 30 dias (ou já expirados). */
+  expiringCount: number;
+  /** Os 5 produtos mais urgentes dessa lista, para o painel, ver `expiringCount` para o total. */
+  expiringProducts: ExpiringProduct[];
 }
+
+/** Janela de aviso de validade, relevante sobretudo para farmácias. */
+const EXPIRY_ALERT_WINDOW_DAYS = 30;
 
 /**
  * Moçambique usa UTC+2 o ano inteiro (Africa/Maputo, sem horário de verão).
  * O servidor pode correr com o relógio em UTC, por isso "hoje", "este mês" e
- * "últimos 7 dias" têm de ser calculados em hora local de Maputo — senão o
+ * "últimos 7 dias" têm de ser calculados em hora local de Maputo, senão o
  * dia muda às 22h locais (2h antes da meia-noite real) em vez de à meia-noite.
  */
 const MAPUTO_OFFSET_MS = 2 * 60 * 60 * 1000;
@@ -82,7 +98,7 @@ async function fetchSalesSummary(tenantId: string, since: Date): Promise<SalesSu
 
 async function fetchLast7Days(tenantId: string, since: Date): Promise<DailySales[]> {
   // `AT TIME ZONE 'Africa/Maputo'` converte o timestamptz para a data/hora
-  // local antes de extrair o dia — sem isto, uma venda feita às 23h de
+  // local antes de extrair o dia, sem isto, uma venda feita às 23h de
   // Maputo (21h UTC) já cai no dia seguinte em UTC e aparecia trocada.
   const rows = await sequelize.query<{ day: string; total: string }>(
     `SELECT DATE(created_at AT TIME ZONE 'Africa/Maputo') AS day, SUM(total_amount) AS total
@@ -97,7 +113,7 @@ async function fetchLast7Days(tenantId: string, since: Date): Promise<DailySales
   );
 
   // `row.day` já é a data local de Maputo (o driver lê "timestamp without
-  // time zone" com os campos tal e qual, sem novo deslocamento) — aqui não
+  // time zone" com os campos tal e qual, sem novo deslocamento), aqui não
   // se aplica outra conversão de fuso, só se lê a data diretamente.
   const totalsByDay = new Map(rows.map((row) => [new Date(row.day).toISOString().slice(0, 10), Number(row.total)]));
 
@@ -186,22 +202,86 @@ async function fetchLowStockCount(tenantId: string): Promise<number> {
   return Number(rows[0]?.count ?? 0);
 }
 
+/** "AAAA-MM-DD" do último dia dentro da janela de aviso, a partir de agora. */
+function expiryThresholdDateKey(now: Date): string {
+  return new Date(now.getTime() + EXPIRY_ALERT_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
+}
+
+async function fetchExpiringCount(tenantId: string, thresholdDateKey: string): Promise<number> {
+  const rows = await sequelize.query<{ count: string }>(
+    `SELECT COUNT(*) AS count
+     FROM products
+     WHERE tenant_id = :tenantId AND is_active = true
+       AND expiry_date IS NOT NULL AND expiry_date <= :thresholdDateKey`,
+    { replacements: { tenantId, thresholdDateKey }, type: QueryTypes.SELECT },
+  );
+
+  return Number(rows[0]?.count ?? 0);
+}
+
+async function fetchExpiringProducts(
+  tenantId: string,
+  now: Date,
+  thresholdDateKey: string,
+): Promise<ExpiringProduct[]> {
+  const rows = await sequelize.query<{ id: string; name: string; expiry_date: string }>(
+    `SELECT id, name, expiry_date
+     FROM products
+     WHERE tenant_id = :tenantId AND is_active = true
+       AND expiry_date IS NOT NULL AND expiry_date <= :thresholdDateKey
+     ORDER BY expiry_date ASC
+     LIMIT 5`,
+    { replacements: { tenantId, thresholdDateKey }, type: QueryTypes.SELECT },
+  );
+
+  const todayUtcMidnight = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+
+  return rows.map((row) => {
+    // expiry_date vem como "AAAA-MM-DD" (coluna DATEONLY), parse manual em
+    // vez de `new Date(row.expiry_date)` para não depender de como o driver
+    // devolve DATEONLY (string vs Date) nem de fuso horário.
+    const [year, month, day] = row.expiry_date.slice(0, 10).split('-').map(Number);
+    const expiryUtcMidnight = Date.UTC(year, month - 1, day);
+    const daysUntilExpiry = Math.round((expiryUtcMidnight - todayUtcMidnight) / 86_400_000);
+
+    return {
+      productId: row.id,
+      name: row.name,
+      expiryDate: row.expiry_date.slice(0, 10),
+      daysUntilExpiry,
+    };
+  });
+}
+
 export async function getDashboardSummary(tenantId: string): Promise<DashboardSummary> {
   const now = new Date();
   const todayStart = startOfMaputoDay(now);
   const monthStart = startOfMaputoMonth(now);
   const sevenDaysAgoStart = new Date(todayStart.getTime() - 6 * 86_400_000);
 
-  const [today, monthRaw, last7Days, paymentMethodBreakdown, topProducts, lowStockCount, agentMarginMonth] =
-    await Promise.all([
-      fetchSalesSummary(tenantId, todayStart),
-      fetchSalesSummary(tenantId, monthStart),
-      fetchLast7Days(tenantId, sevenDaysAgoStart),
-      fetchPaymentMethodBreakdown(tenantId, monthStart),
-      fetchTopProducts(tenantId, monthStart),
-      fetchLowStockCount(tenantId),
-      fetchAgentMarginSummary(tenantId, monthStart),
-    ]);
+  const thresholdDateKey = expiryThresholdDateKey(now);
+
+  const [
+    today,
+    monthRaw,
+    last7Days,
+    paymentMethodBreakdown,
+    topProducts,
+    lowStockCount,
+    agentMarginMonth,
+    expiringCount,
+    expiringProducts,
+  ] = await Promise.all([
+    fetchSalesSummary(tenantId, todayStart),
+    fetchSalesSummary(tenantId, monthStart),
+    fetchLast7Days(tenantId, sevenDaysAgoStart),
+    fetchPaymentMethodBreakdown(tenantId, monthStart),
+    fetchTopProducts(tenantId, monthStart),
+    fetchLowStockCount(tenantId),
+    fetchAgentMarginSummary(tenantId, monthStart),
+    fetchExpiringCount(tenantId, thresholdDateKey),
+    fetchExpiringProducts(tenantId, now, thresholdDateKey),
+  ]);
 
   const averageTicket = monthRaw.count > 0 ? monthRaw.totalAmount / monthRaw.count : 0;
 
@@ -213,5 +293,7 @@ export async function getDashboardSummary(tenantId: string): Promise<DashboardSu
     topProducts,
     lowStockCount,
     agentMarginMonth,
+    expiringCount,
+    expiringProducts,
   };
 }

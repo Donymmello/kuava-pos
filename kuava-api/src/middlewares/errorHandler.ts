@@ -20,7 +20,7 @@ export function errorHandler(err: Error, req: Request, res: Response, _next: Nex
     return;
   }
 
-  // req.log (pino-http) inclui o id do pedido — permite encontrar todos os
+  // req.log (pino-http) inclui o id do pedido, permite encontrar todos os
   // logs de um pedido específico que rebentou, não só esta linha isolada.
   // Cai para o logger simples se, por algum motivo, pino-http não tiver
   // corrido antes disto (ex.: um teste a chamar isto diretamente).

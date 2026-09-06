@@ -13,7 +13,7 @@ interface SaleSuccessDialogProps {
 
 /**
  * Confirmação exibida logo após finalizar uma venda no balcão, com acesso
- * imediato à fatura em PDF e à impressão do recibo térmico — sem ter de ir
+ * imediato à fatura em PDF e à impressão do recibo térmico, sem ter de ir
  * procurar a venda depois em Faturas.
  */
 export default function SaleSuccessDialog({ sale, tenant, onPrintReceipt, onClose }: SaleSuccessDialogProps) {
@@ -41,7 +41,7 @@ export default function SaleSuccessDialog({ sale, tenant, onPrintReceipt, onClos
 
         {sale.pending_sync && (
           <Alert severity="info" sx={{ mb: 1 }}>
-            Guardada neste dispositivo — sem ligação de momento. Sincroniza automaticamente
+            Guardada neste dispositivo, sem ligação de momento. Sincroniza automaticamente
             assim que a rede voltar.
           </Alert>
         )}

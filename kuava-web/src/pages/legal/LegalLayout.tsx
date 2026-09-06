@@ -10,7 +10,7 @@ interface LegalLayoutProps {
 }
 
 /**
- * Layout partilhado por /termos e /politica — os dois documentos legais
+ * Layout partilhado por /termos e /politica, os dois documentos legais
  * (gerados a partir de legal/termos-de-servico.docx e
  * legal/politica-de-privacidade.docx) só existem aqui como texto simples,
  * sem lógica nenhuma: a fonte da verdade continua a ser o .docx.
@@ -36,7 +36,7 @@ export default function LegalLayout({ title, updatedAt, children }: LegalLayoutP
                   {title}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Kuava POS — última atualização: {updatedAt}
+                  Kuava POS · última atualização: {updatedAt}
                 </Typography>
               </Box>
 

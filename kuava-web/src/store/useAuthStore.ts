@@ -33,7 +33,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch (error) {
       // O backend já distingue senha errada de motivos de conta/negócio
       // (estabelecimento desativado, trial de 7 dias terminado sem plano
-      // ativo — ver authService.login()) com mensagens diferentes; mostrar
+      // ativo, ver authService.login()) com mensagens diferentes; mostrar
       // sempre a mesma frase genérica escondia isso do utilizador, que via
       // "credenciais inválidas" mesmo quando o problema era não ter pago.
       const message =

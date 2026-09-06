@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Box, Button, Divider, Grid, Snackbar, Stack, Typography, Alert } from '@mui/material';
+import { Box, Button, Divider, Snackbar, Stack, Typography, Alert } from '@mui/material';
 import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
 import { useCartStore } from '../../store/useCartStore';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -46,6 +46,7 @@ export default function PosPage() {
   const addProduct = useCartStore((state) => state.addProduct);
   const incrementQuantity = useCartStore((state) => state.incrementQuantity);
   const decrementQuantity = useCartStore((state) => state.decrementQuantity);
+  const setQuantity = useCartStore((state) => state.setQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const setPaymentMethod = useCartStore((state) => state.setPaymentMethod);
   const setMobileMoneyFlow = useCartStore((state) => state.setMobileMoneyFlow);
@@ -58,7 +59,7 @@ export default function PosPage() {
   const totals = getTotals();
 
   const needsMobileMoneyDetails = isMobileMoneyMethod(paymentMethod);
-  // Referência e margem são opcionais — o caixa pode finalizar sem as
+  // Referência e margem são opcionais, o caixa pode finalizar sem as
   // preencher, para não atrasar o atendimento. Só bloqueia se o caixa TIVER
   // escrito um valor de margem que não faz sentido (negativo). Aceita
   // vírgula como separador decimal (comum em português) além do ponto.
@@ -82,7 +83,7 @@ export default function PosPage() {
       cacheProducts(result).catch(() => undefined);
     } catch (error) {
       if (isNetworkError(error)) {
-        // Sem ligação — usa o catálogo guardado localmente da última vez
+        // Sem ligação, usa o catálogo guardado localmente da última vez
         // que a app esteve online, para o balcão não parar de vender.
         const cached = await getCachedProducts();
         setProducts(cached);
@@ -150,7 +151,7 @@ export default function PosPage() {
       await loadProducts();
     } catch (error) {
       if (isNetworkError(error)) {
-        // Sem ligação — guarda a venda localmente; sincroniza sozinha quando
+        // Sem ligação, guarda a venda localmente; sincroniza sozinha quando
         // a rede voltar (ver useOfflineStore).
         const pending = await useOfflineStore.getState().queueSale(payload);
         await decrementCachedStock(payload.items);
@@ -173,7 +174,7 @@ export default function PosPage() {
             paymentMethod,
             totals: cartTotals,
             cashierId: currentUser?.id ?? '',
-            cashierName: currentUser?.name ?? '—',
+            cashierName: currentUser?.name ?? '-',
             mobileMoneyFlow: payload.mobile_money_flow ?? null,
             paymentReference: payload.payment_reference ?? null,
             agentMarginAmount: payload.agent_margin_amount ?? null,
@@ -210,12 +211,28 @@ export default function PosPage() {
 
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-      <Grid container sx={{ flex: 1, overflow: 'hidden' }}>
-        <Grid item xs={12} md={8} sx={{ height: '100%', overflowY: 'auto', p: 2 }}>
+      <Box
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: { xs: 'column', md: 'row' },
+        }}
+      >
+        <Box
+          sx={{
+            height: { xs: '55%', md: '100%' },
+            flex: { md: '0 0 66.6667%' },
+            minHeight: 0,
+            overflowY: 'auto',
+            p: 2,
+          }}
+        >
           <Stack spacing={2} sx={{ height: '100%' }}>
             {(!isOnline || usingOfflineCatalog) && (
               <Alert severity="warning" icon={<CloudOffOutlinedIcon fontSize="small" />} sx={{ py: 0 }}>
-                Sem ligação — a vender a partir do catálogo guardado localmente. As vendas ficam
+                Sem ligação: a vender a partir do catálogo guardado localmente. As vendas ficam
                 guardadas neste dispositivo e sincronizam automaticamente quando a rede voltar.
               </Alert>
             )}
@@ -228,26 +245,27 @@ export default function PosPage() {
             />
             <ProductGrid products={filteredProducts} loading={loadingProducts} onSelect={addProduct} />
           </Stack>
-        </Grid>
+        </Box>
 
-        <Grid
-          item
-          xs={12}
-          md={4}
+        <Box
           sx={{
-            height: '100%',
+            height: { xs: '45%', md: '100%' },
+            flex: { md: '0 0 33.3333%' },
+            minHeight: 0,
             display: 'flex',
             flexDirection: 'column',
+            borderTop: { xs: 1, md: 0 },
             borderLeft: { md: 1 },
             borderColor: 'divider',
             bgcolor: 'background.paper',
           }}
         >
-          <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             <CartTable
               items={items}
               onIncrement={incrementQuantity}
               onDecrement={decrementQuantity}
+              onSetQuantity={setQuantity}
               onRemove={removeItem}
             />
           </Box>
@@ -298,12 +316,12 @@ export default function PosPage() {
                 disabled={items.length === 0 || isFinalizingSale || Boolean(paymentDetailsError)}
                 onClick={handleFinalizeSale}
               >
-                {isFinalizingSale ? 'A finalizar…' : `Finalizar Venda (F9) — ${formatMzn(totals.total)}`}
+                {isFinalizingSale ? 'A finalizar…' : `Finalizar Venda (F9): ${formatMzn(totals.total)}`}
               </Button>
             </Stack>
           </Box>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <Snackbar open={Boolean(lastError)} autoHideDuration={4000} onClose={clearError}>
         <Alert severity="error" onClose={clearError} variant="filled">

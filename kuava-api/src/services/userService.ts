@@ -29,7 +29,7 @@ export async function listUsers(tenantId: string): Promise<User[]> {
 }
 
 export async function createUser(tenantId: string, input: CreateUserInput): Promise<User> {
-  // SUPERADMIN nunca pode ser atribuído por aqui — esta rota é sempre
+  // SUPERADMIN nunca pode ser atribuído por aqui, esta rota é sempre
   // tenant-scoped (tenantMiddleware), e SUPERADMIN é a conta do dono da
   // plataforma, sem tenant_id. Um ADMIN de estabelecimento não pode
   // promover-se a si próprio (ou a outro) a superadmin desta forma.
@@ -37,7 +37,7 @@ export async function createUser(tenantId: string, input: CreateUserInput): Prom
     throw new AppError('Perfil inválido', 422);
   }
 
-  // O email é único em toda a aplicação (não só neste estabelecimento) —
+  // O email é único em toda a aplicação (não só neste estabelecimento),
   // ver o comentário no índice do modelo User para o porquê.
   const existing = await User.findOne({ where: { email: input.email } });
   if (existing) {

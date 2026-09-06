@@ -55,8 +55,18 @@ export async function getProductByBarcode(
 export async function createProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const tenantId = req.tenantId as string;
-    const { barcode, name, price, cost_price, stock_quantity, min_stock_alert, tax_rate, category } =
-      req.body;
+    const {
+      barcode,
+      name,
+      price,
+      cost_price,
+      stock_quantity,
+      min_stock_alert,
+      tax_rate,
+      category,
+      unit,
+      expiry_date,
+    } = req.body;
 
     const product = await productService.createProduct({
       tenantId,
@@ -68,6 +78,8 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       min_stock_alert,
       tax_rate,
       category,
+      unit,
+      expiry_date,
     });
 
     sendSuccess(res, product, 'Produto criado com sucesso', 201);
@@ -88,6 +100,8 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       min_stock_alert,
       tax_rate,
       category,
+      unit,
+      expiry_date,
       is_active,
     } = req.body;
 
@@ -102,6 +116,8 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       min_stock_alert,
       tax_rate,
       category,
+      unit,
+      expiry_date,
       is_active,
     });
 
