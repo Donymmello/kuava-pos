@@ -1,6 +1,6 @@
 import { ToggleButton, ToggleButtonGroup, Typography, Stack } from '@mui/material';
 import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
-import PhoneIphoneOutlinedIcon from '@mui/icons-material/PhoneIphoneOutlined';
+import SwapHorizOutlinedIcon from '@mui/icons-material/SwapHorizOutlined';
 import CreditCardOutlinedIcon from '@mui/icons-material/CreditCardOutlined';
 import { PAYMENT_METHOD_LABELS, PaymentMethod } from '../../types';
 
@@ -11,9 +11,8 @@ interface PaymentMethodSelectorProps {
 
 const ICONS: Record<PaymentMethod, JSX.Element> = {
   [PaymentMethod.CASH]: <PaymentsOutlinedIcon fontSize="small" />,
-  [PaymentMethod.MPESA]: <PhoneIphoneOutlinedIcon fontSize="small" />,
-  [PaymentMethod.EMOLA]: <PhoneIphoneOutlinedIcon fontSize="small" />,
   [PaymentMethod.CARD]: <CreditCardOutlinedIcon fontSize="small" />,
+  [PaymentMethod.TRANSFER]: <SwapHorizOutlinedIcon fontSize="small" />,
 };
 
 export default function PaymentMethodSelector({ value, onChange }: PaymentMethodSelectorProps) {

@@ -6,9 +6,12 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   MenuItem,
   Stack,
+  Switch,
   TextField,
+  Typography,
 } from '@mui/material';
 import { isFractionalUnit, PRODUCT_UNIT_LABELS, Product, ProductUnit } from '../../types';
 import { ProductInput } from '../../services/productService';
@@ -35,6 +38,7 @@ interface FormFields {
   unit: ProductUnit;
   /** "AAAA-MM-DD", ou '' para "sem validade a controlar". */
   expiryDate: string;
+  tracksBatches: boolean;
 }
 
 function emptyForm(defaultTaxRatePercent: string): FormFields {
@@ -49,6 +53,7 @@ function emptyForm(defaultTaxRatePercent: string): FormFields {
     taxRatePercent: defaultTaxRatePercent,
     unit: ProductUnit.UN,
     expiryDate: '',
+    tracksBatches: false,
   };
 }
 
@@ -64,6 +69,7 @@ function productToForm(product: Product): FormFields {
     taxRatePercent: String(Math.round(product.tax_rate * 10000) / 100),
     unit: product.unit,
     expiryDate: product.expiry_date ?? '',
+    tracksBatches: product.tracks_batches,
   };
 }
 
@@ -98,6 +104,14 @@ export default function ProductFormDialog({
     setFields((current) => ({ ...current, [key]: value }));
   }
 
+  // Enquanto o controle por lotes já estava ativo antes desta edição, o
+  // stock e a validade vêm da soma/validade mais próxima entre os lotes
+  // (geridos em "Ver lotes" no Inventário), não são um campo solto para
+  // editar aqui, o backend também rejeita. Só ficam editáveis quando é
+  // agora que se está a criar o produto ou a ativar os lotes pela
+  // primeira vez, nesse caso o valor introduzido vira o primeiro lote.
+  const stockFieldsComeFromLots = mode === 'edit' && Boolean(product?.tracks_batches) && fields.tracksBatches;
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -120,11 +134,14 @@ export default function ProductFormDialog({
       category: fields.category.trim() || null,
       price,
       cost_price: Number(fields.costPrice) || 0,
-      stock_quantity: Math.max(0, roundQuantity(Number(fields.stockQuantity) || 0)),
+      stock_quantity: stockFieldsComeFromLots
+        ? undefined
+        : Math.max(0, roundQuantity(Number(fields.stockQuantity) || 0)),
       min_stock_alert: Math.max(0, roundQuantity(Number(fields.minStockAlert) || 0)),
       tax_rate: Math.max(0, Number(fields.taxRatePercent) || 0) / 100,
       unit: fields.unit,
-      expiry_date: fields.expiryDate || null,
+      expiry_date: stockFieldsComeFromLots ? undefined : fields.expiryDate || null,
+      tracks_batches: fields.tracksBatches,
     };
 
     setSubmitting(true);
@@ -214,10 +231,34 @@ export default function ProductFormDialog({
                 type="date"
                 value={fields.expiryDate}
                 onChange={(event) => updateField('expiryDate', event.target.value)}
-                helperText="Deixe em branco se não aplicável. Aparece no alerta de validade do painel."
+                helperText={
+                  stockFieldsComeFromLots
+                    ? 'Vem do lote mais próximo de vencer, geridos em "Ver lotes" no Inventário.'
+                    : 'Deixe em branco se não aplicável. Aparece no alerta de validade do painel.'
+                }
+                disabled={stockFieldsComeFromLots}
                 InputLabelProps={{ shrink: true }}
                 fullWidth
               />
+            </Stack>
+
+            <Stack spacing={0.5}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={fields.tracksBatches}
+                    onChange={(event) => updateField('tracksBatches', event.target.checked)}
+                  />
+                }
+                label="Controlar por lotes (validade e stock separados por remessa)"
+              />
+              {fields.tracksBatches && (
+                <Typography variant="caption" color="text.secondary">
+                  {stockFieldsComeFromLots
+                    ? 'Stock e validade vêm da soma dos lotes. Registe novas remessas em "Ver lotes", no Inventário.'
+                    : 'O stock e a validade indicados abaixo viram o primeiro lote deste produto.'}
+                </Typography>
+              )}
             </Stack>
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
@@ -227,6 +268,8 @@ export default function ProductFormDialog({
                 inputProps={{ min: 0, step: isFractionalUnit(fields.unit) ? '0.001' : '1' }}
                 value={fields.stockQuantity}
                 onChange={(event) => updateField('stockQuantity', event.target.value)}
+                disabled={stockFieldsComeFromLots}
+                helperText={stockFieldsComeFromLots ? 'Vem da soma dos lotes.' : undefined}
                 fullWidth
               />
               <TextField

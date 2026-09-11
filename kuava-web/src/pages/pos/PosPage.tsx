@@ -10,7 +10,7 @@ import { fetchTenant } from '../../services/tenantService';
 import { cacheProducts, cacheTenant, decrementCachedStock, getCachedProducts, getCachedTenant } from '../../db/offlineDb';
 import { extractErrorMessage, isNetworkError } from '../../utils/networkError';
 import { buildLocalSalePreview } from '../../utils/offlineSale';
-import { isMobileMoneyMethod, MobileMoneyFlow, Product, Sale, Tenant } from '../../types';
+import { PaymentMethod, Product, Sale, Tenant } from '../../types';
 import { formatMzn } from '../../utils/currency';
 import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
 import { useBarcodeScanner } from '../../hooks/useBarcodeScanner';
@@ -18,7 +18,7 @@ import BarcodeSearchInput from '../../components/pos/BarcodeSearchInput';
 import ProductGrid from '../../components/pos/ProductGrid';
 import CartTable from '../../components/pos/CartTable';
 import PaymentMethodSelector from '../../components/pos/PaymentMethodSelector';
-import MobileMoneyDetailsForm from '../../components/pos/MobileMoneyDetailsForm';
+import TransferDetailsForm from '../../components/pos/TransferDetailsForm';
 import SaleSuccessDialog from '../../components/pos/SaleSuccessDialog';
 import ThermalReceipt from '../../components/invoices/ThermalReceipt';
 
@@ -38,9 +38,7 @@ export default function PosPage() {
 
   const items = useCartStore((state) => state.items);
   const paymentMethod = useCartStore((state) => state.paymentMethod);
-  const mobileMoneyFlow = useCartStore((state) => state.mobileMoneyFlow);
   const paymentReference = useCartStore((state) => state.paymentReference);
-  const agentMarginAmount = useCartStore((state) => state.agentMarginAmount);
   const lastError = useCartStore((state) => state.lastError);
   const isAddingByBarcode = useCartStore((state) => state.isAddingByBarcode);
   const addProduct = useCartStore((state) => state.addProduct);
@@ -49,30 +47,14 @@ export default function PosPage() {
   const setQuantity = useCartStore((state) => state.setQuantity);
   const removeItem = useCartStore((state) => state.removeItem);
   const setPaymentMethod = useCartStore((state) => state.setPaymentMethod);
-  const setMobileMoneyFlow = useCartStore((state) => state.setMobileMoneyFlow);
   const setPaymentReference = useCartStore((state) => state.setPaymentReference);
-  const setAgentMarginAmount = useCartStore((state) => state.setAgentMarginAmount);
   const clearCart = useCartStore((state) => state.clearCart);
   const clearError = useCartStore((state) => state.clearError);
   const getTotals = useCartStore((state) => state.getTotals);
 
   const totals = getTotals();
 
-  const needsMobileMoneyDetails = isMobileMoneyMethod(paymentMethod);
-  // Referência e margem são opcionais, o caixa pode finalizar sem as
-  // preencher, para não atrasar o atendimento. Só bloqueia se o caixa TIVER
-  // escrito um valor de margem que não faz sentido (negativo). Aceita
-  // vírgula como separador decimal (comum em português) além do ponto.
-  const normalizedMargin = agentMarginAmount.trim().replace(',', '.');
-  const marginTyped = normalizedMargin !== '';
-  const parsedAgentMargin = marginTyped ? Number(normalizedMargin) : undefined;
-  const paymentDetailsError =
-    needsMobileMoneyDetails &&
-    mobileMoneyFlow === MobileMoneyFlow.AGENT &&
-    marginTyped &&
-    (Number.isNaN(parsedAgentMargin) || (parsedAgentMargin as number) < 0)
-      ? 'Indica um valor de margem válido (não pode ser negativo).'
-      : null;
+  const needsTransferDetails = paymentMethod === PaymentMethod.TRANSFER;
 
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true);
@@ -125,7 +107,7 @@ export default function PosPage() {
   }, [products, searchValue]);
 
   const handleFinalizeSale = useCallback(async () => {
-    if (items.length === 0 || isFinalizingSale || paymentDetailsError) {
+    if (items.length === 0 || isFinalizingSale) {
       return;
     }
 
@@ -135,13 +117,7 @@ export default function PosPage() {
     const payload: RegisterSalePayload = {
       payment_method: paymentMethod,
       items: cartItems.map((item) => ({ product_id: item.productId, quantity: item.quantity })),
-      mobile_money_flow: needsMobileMoneyDetails ? mobileMoneyFlow ?? undefined : undefined,
-      payment_reference:
-        needsMobileMoneyDetails && mobileMoneyFlow === MobileMoneyFlow.TRANSFER && paymentReference.trim()
-          ? paymentReference.trim()
-          : undefined,
-      agent_margin_amount:
-        needsMobileMoneyDetails && mobileMoneyFlow === MobileMoneyFlow.AGENT ? parsedAgentMargin : undefined,
+      payment_reference: needsTransferDetails && paymentReference.trim() ? paymentReference.trim() : undefined,
     };
 
     try {
@@ -175,9 +151,7 @@ export default function PosPage() {
             totals: cartTotals,
             cashierId: currentUser?.id ?? '',
             cashierName: currentUser?.name ?? '-',
-            mobileMoneyFlow: payload.mobile_money_flow ?? null,
             paymentReference: payload.payment_reference ?? null,
-            agentMarginAmount: payload.agent_margin_amount ?? null,
           }),
         );
       } else {
@@ -191,12 +165,9 @@ export default function PosPage() {
   }, [
     items,
     isFinalizingSale,
-    paymentDetailsError,
     paymentMethod,
-    needsMobileMoneyDetails,
-    mobileMoneyFlow,
+    needsTransferDetails,
     paymentReference,
-    parsedAgentMargin,
     clearCart,
     loadProducts,
     getTotals,
@@ -297,15 +268,10 @@ export default function PosPage() {
 
               <PaymentMethodSelector value={paymentMethod} onChange={setPaymentMethod} />
 
-              {needsMobileMoneyDetails && (
-                <MobileMoneyDetailsForm
-                  flow={mobileMoneyFlow}
+              {needsTransferDetails && (
+                <TransferDetailsForm
                   paymentReference={paymentReference}
-                  agentMarginAmount={agentMarginAmount}
-                  onFlowChange={setMobileMoneyFlow}
                   onPaymentReferenceChange={setPaymentReference}
-                  onAgentMarginAmountChange={setAgentMarginAmount}
-                  marginError={paymentDetailsError}
                 />
               )}
 
@@ -313,7 +279,7 @@ export default function PosPage() {
                 variant="contained"
                 size="large"
                 color="primary"
-                disabled={items.length === 0 || isFinalizingSale || Boolean(paymentDetailsError)}
+                disabled={items.length === 0 || isFinalizingSale}
                 onClick={handleFinalizeSale}
               >
                 {isFinalizingSale ? 'A finalizar…' : `Finalizar Venda (F9): ${formatMzn(totals.total)}`}

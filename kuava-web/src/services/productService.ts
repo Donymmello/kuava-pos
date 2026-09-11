@@ -14,6 +14,7 @@ export interface ProductInput {
   /** "AAAA-MM-DD", ou null para remover a validade. */
   expiry_date?: string | null;
   is_active?: boolean;
+  tracks_batches?: boolean;
 }
 
 export async function fetchProducts(search?: string, activeOnly = true): Promise<Product[]> {

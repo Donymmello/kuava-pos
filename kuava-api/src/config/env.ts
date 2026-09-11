@@ -57,4 +57,16 @@ export const env = {
   corsOrigin: requireEnv('CORS_ORIGIN', 'http://localhost:5173'),
 
   ivaRate: parseFloat(requireEnv('IVA_RATE', '0.16')),
+
+  // Dados usados na fatura pro-forma da página de assinatura (ver
+  // subscriptionService.ts): sem gateway de pagamento, é para onde o
+  // cliente transfere manualmente. Os preços por omissão coincidem com os
+  // já mostrados na landing page (kuava-web/src/pages/landing/LandingPage.tsx).
+  billing: {
+    bankName: requireEnv('KUAVA_BANK_NAME', 'PREENCHER_NOME_DO_BANCO'),
+    bankAccountHolder: requireEnv('KUAVA_BANK_ACCOUNT_HOLDER', 'PREENCHER_TITULAR_DA_CONTA'),
+    bankNib: requireEnv('KUAVA_BANK_NIB', 'PREENCHER_NIB'),
+    monthlyPriceMzn: parseFloat(requireEnv('KUAVA_MONTHLY_PRICE_MZN', '1199')),
+    annualPriceMzn: parseFloat(requireEnv('KUAVA_ANNUAL_PRICE_MZN', '11990')),
+  },
 };

@@ -61,9 +61,7 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
       items: payload.items,
       createdAt: new Date().toISOString(),
       status: 'pending',
-      mobileMoneyFlow: payload.mobile_money_flow,
       paymentReference: payload.payment_reference,
-      agentMarginAmount: payload.agent_margin_amount,
     };
 
     const localId = await offlineDb.pendingSales.add(pendingSale);
@@ -102,9 +100,7 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
             payment_method: sale.paymentMethod,
             items: sale.items,
             client_ref: sale.clientRef,
-            mobile_money_flow: sale.mobileMoneyFlow,
             payment_reference: sale.paymentReference,
-            agent_margin_amount: sale.agentMarginAmount,
           });
           await offlineDb.pendingSales.delete(sale.localId as number);
           synced += 1;

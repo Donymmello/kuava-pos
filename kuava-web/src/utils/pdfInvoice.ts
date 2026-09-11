@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { getSaleItemProductName, MOBILE_MONEY_FLOW_LABELS, MobileMoneyFlow, PAYMENT_METHOD_LABELS, Sale, Tenant } from '../types';
+import { getSaleItemProductName, PAYMENT_METHOD_LABELS, PaymentMethod, Sale, Tenant } from '../types';
 import { formatMzn } from './currency';
 import { formatDateTime } from './date';
 import { formatQuantity } from './quantity';
@@ -68,15 +68,8 @@ export function generateInvoicePdf(sale: Sale, tenant: Tenant, format: InvoiceFo
   doc.text(`Pagamento: ${PAYMENT_METHOD_LABELS[sale.payment_method]}`, marginX, y);
   y += isA5 ? 4.5 : 5.5;
 
-  if (sale.mobile_money_flow === MobileMoneyFlow.TRANSFER && sale.payment_reference) {
-    doc.text(`Ref. confirmação: ${sale.payment_reference}`, marginX, y);
-    y += isA5 ? 4.5 : 5.5;
-  } else if (sale.mobile_money_flow === MobileMoneyFlow.AGENT && sale.agent_margin_amount !== null) {
-    doc.text(
-      `Modalidade: ${MOBILE_MONEY_FLOW_LABELS[MobileMoneyFlow.AGENT]} · Margem: ${formatMzn(sale.agent_margin_amount)}`,
-      marginX,
-      y,
-    );
+  if (sale.payment_method === PaymentMethod.TRANSFER && sale.payment_reference) {
+    doc.text(`Referência: ${sale.payment_reference}`, marginX, y);
     y += isA5 ? 4.5 : 5.5;
   }
 

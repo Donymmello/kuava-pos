@@ -50,7 +50,7 @@ const FEATURES = [
 // Plano único por estabelecimento, sem níveis por funcionalidade, reflete
 // o que o produto realmente é hoje (não há nenhuma funcionalidade bloqueada
 // por plano no código, só o período de trial vs. assinatura ativa, ver
-// Tenant.subscription_active) e como a arquitetura multi-tenant já escala a
+// Tenant.subscription_expires_at) e como a arquitetura multi-tenant já escala a
 // receita com o tamanho do negócio: um dono com várias lojas regista vários
 // estabelecimentos, paga várias assinaturas, não precisa de "planos" por
 // nicho (farmácia, ferragem, mercearia, bottle store pagam o mesmo).

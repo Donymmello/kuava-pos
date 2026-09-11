@@ -1,5 +1,5 @@
 import { api } from './api';
-import { ApiSuccessResponse, SuperadminTenant } from '../types';
+import { ApiSuccessResponse, SuperadminSubscriptionRequest, SuperadminTenant } from '../types';
 
 export async function fetchAllTenants(): Promise<SuperadminTenant[]> {
   const response = await api.get<ApiSuccessResponse<SuperadminTenant[]>>('/superadmin/tenants');
@@ -13,13 +13,24 @@ export async function setTenantActive(tenantId: string, isActive: boolean): Prom
   return response.data.data;
 }
 
-export async function setTenantSubscriptionActive(
-  tenantId: string,
-  active: boolean,
-): Promise<SuperadminTenant> {
-  const response = await api.put<ApiSuccessResponse<SuperadminTenant>>(`/superadmin/tenants/${tenantId}`, {
-    subscription_active: active,
-  });
+export async function fetchPendingSubscriptionRequests(): Promise<SuperadminSubscriptionRequest[]> {
+  const response = await api.get<ApiSuccessResponse<SuperadminSubscriptionRequest[]>>(
+    '/superadmin/subscription-requests',
+  );
+  return response.data.data;
+}
+
+export async function confirmSubscriptionRequest(requestId: string): Promise<SuperadminSubscriptionRequest> {
+  const response = await api.post<ApiSuccessResponse<SuperadminSubscriptionRequest>>(
+    `/superadmin/subscription-requests/${requestId}/confirm`,
+  );
+  return response.data.data;
+}
+
+export async function cancelSubscriptionRequest(requestId: string): Promise<SuperadminSubscriptionRequest> {
+  const response = await api.post<ApiSuccessResponse<SuperadminSubscriptionRequest>>(
+    `/superadmin/subscription-requests/${requestId}/cancel`,
+  );
   return response.data.data;
 }
 

@@ -22,7 +22,9 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import SearchIcon from '@mui/icons-material/Search';
+import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import ProductFormDialog from '../../components/inventory/ProductFormDialog';
+import ProductLotsDialog from '../../components/inventory/ProductLotsDialog';
 import {
   createProduct,
   deactivateProduct,
@@ -55,6 +57,7 @@ export default function InventoryPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogMode, setDialogMode] = useState<'create' | 'edit'>('create');
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [lotsDialogProduct, setLotsDialogProduct] = useState<Product | null>(null);
   const [defaultTaxRatePercent, setDefaultTaxRatePercent] = useState(FALLBACK_DEFAULT_TAX_RATE_PERCENT);
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'error'; message: string } | null>(
     null,
@@ -232,6 +235,13 @@ export default function InventoryPage() {
                   />
                 </TableCell>
                 <TableCell align="right">
+                  {product.tracks_batches && (
+                    <Tooltip title="Ver lotes">
+                      <IconButton size="small" onClick={() => setLotsDialogProduct(product)}>
+                        <Inventory2OutlinedIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                   <Tooltip title="Editar">
                     <IconButton size="small" onClick={() => openEditDialog(product)}>
                       <EditOutlinedIcon fontSize="small" />
@@ -260,6 +270,13 @@ export default function InventoryPage() {
         defaultTaxRatePercent={defaultTaxRatePercent}
         onClose={() => setDialogOpen(false)}
         onSubmit={handleSubmit}
+      />
+
+      <ProductLotsDialog
+        open={Boolean(lotsDialogProduct)}
+        product={lotsDialogProduct}
+        onClose={() => setLotsDialogProduct(null)}
+        onLotsChanged={loadProducts}
       />
 
       <Snackbar open={Boolean(feedback)} autoHideDuration={4000} onClose={() => setFeedback(null)}>

@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { Outlet, Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
+import { Link as RouterLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -21,42 +20,39 @@ import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined';
 import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOfflineStore } from '../../store/useOfflineStore';
+import { useSubscriptionStore } from '../../store/useSubscriptionStore';
 import { useColorMode } from '../../theme/ColorModeContext';
-import { fetchTenant } from '../../services/tenantService';
-import { USER_ROLE_LABELS, UserRole } from '../../types';
+import { SubscriptionStatus, USER_ROLE_LABELS, UserRole } from '../../types';
 
-// Fase inicial: um único plano pago + 7 dias de teste gratuito, ativado
-// manualmente pelo superadmin (ver SuperadminTenantsPage.tsx). Só o ADMIN
-// vê este aviso, é quem trata do pagamento, não a caixa/gerente do dia a dia.
-function useTrialBanner(userRole: UserRole | undefined) {
-  const [banner, setBanner] = useState<{ label: string; color: 'warning' | 'error' } | null>(null);
+// Só o ADMIN vê este aviso, é quem trata da assinatura, não a caixa/gerente
+// do dia a dia. Lê o estado já carregado pelo SubscriptionGuard (que
+// envolve estas páginas), sem precisar de outro pedido à API.
+function trialBannerFrom(
+  status: SubscriptionStatus | null,
+  userRole: UserRole | undefined,
+): { label: string; color: 'warning' | 'error' } | null {
+  if (userRole !== UserRole.ADMIN || !status) {
+    return null;
+  }
 
-  useEffect(() => {
-    if (userRole !== UserRole.ADMIN) {
-      return;
-    }
-    fetchTenant()
-      .then((tenant) => {
-        if (tenant.subscription_active || !tenant.trial_ends_at) {
-          setBanner(null);
-          return;
-        }
-        const daysLeft = Math.ceil(
-          (new Date(tenant.trial_ends_at).getTime() - Date.now()) / (24 * 60 * 60 * 1000),
-        );
-        if (daysLeft > 0) {
-          setBanner({
-            label: `Teste gratuito: falta${daysLeft === 1 ? '' : 'm'} ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`,
-            color: 'warning',
-          });
-        } else {
-          setBanner({ label: 'Teste gratuito terminado: contacte o suporte', color: 'error' });
-        }
-      })
-      .catch(() => undefined);
-  }, [userRole]);
+  const now = Date.now();
+  const subscriptionValid =
+    Boolean(status.subscriptionExpiresAt) && new Date(status.subscriptionExpiresAt as string).getTime() > now;
 
-  return banner;
+  if (subscriptionValid || !status.trialEndsAt) {
+    return null;
+  }
+
+  const daysLeft = Math.ceil((new Date(status.trialEndsAt).getTime() - now) / (24 * 60 * 60 * 1000));
+
+  if (daysLeft > 0) {
+    return {
+      label: `Teste gratuito: falta${daysLeft === 1 ? '' : 'm'} ${daysLeft} dia${daysLeft === 1 ? '' : 's'}`,
+      color: 'warning',
+    };
+  }
+
+  return { label: 'Teste gratuito terminado: escolha um plano', color: 'error' };
 }
 
 interface NavItem {
@@ -71,6 +67,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: '/inventory', label: 'Inventário', roles: [UserRole.ADMIN, UserRole.MANAGER] },
   { to: '/dashboard', label: 'Painel', roles: [UserRole.ADMIN, UserRole.MANAGER] },
   { to: '/settings', label: 'Definições', roles: [UserRole.ADMIN] },
+  { to: '/assinatura', label: 'Assinatura', roles: [UserRole.ADMIN] },
 ];
 
 export default function AppLayout() {
@@ -85,7 +82,8 @@ export default function AppLayout() {
   const isSyncing = useOfflineStore((state) => state.isSyncing);
   const syncNow = useOfflineStore((state) => state.syncNow);
 
-  const trialBanner = useTrialBanner(user?.role);
+  const subscriptionStatus = useSubscriptionStore((state) => state.status);
+  const trialBanner = trialBannerFrom(subscriptionStatus, user?.role);
 
   function handleLogout() {
     logout();
@@ -136,7 +134,8 @@ export default function AppLayout() {
               label={trialBanner.label}
               color={trialBanner.color}
               variant="outlined"
-              sx={{ mr: 1 }}
+              onClick={() => navigate('/assinatura')}
+              sx={{ mr: 1, cursor: 'pointer' }}
             />
           )}
 

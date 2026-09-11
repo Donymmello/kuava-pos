@@ -1,4 +1,4 @@
-import { CartItem, MobileMoneyFlow, PaymentMethod, Sale, SaleItemResult } from '../types';
+import { CartItem, PaymentMethod, Sale, SaleItemResult } from '../types';
 import { CartTotals } from '../store/useCartStore';
 
 interface BuildLocalSalePreviewParams {
@@ -8,9 +8,7 @@ interface BuildLocalSalePreviewParams {
   totals: CartTotals;
   cashierId: string;
   cashierName: string;
-  mobileMoneyFlow?: MobileMoneyFlow | null;
   paymentReference?: string | null;
-  agentMarginAmount?: number | null;
 }
 
 /**
@@ -27,9 +25,7 @@ export function buildLocalSalePreview({
   totals,
   cashierId,
   cashierName,
-  mobileMoneyFlow = null,
   paymentReference = null,
-  agentMarginAmount = null,
 }: BuildLocalSalePreviewParams): Sale {
   const saleItems: SaleItemResult[] = items.map((item, index) => ({
     id: `${clientRef}-${index}`,
@@ -48,9 +44,7 @@ export function buildLocalSalePreview({
     tax_amount: totals.taxTotal,
     payment_method: paymentMethod,
     status: 'COMPLETED',
-    mobile_money_flow: mobileMoneyFlow,
     payment_reference: paymentReference,
-    agent_margin_amount: agentMarginAmount,
     created_at: new Date().toISOString(),
     user: { id: cashierId, name: cashierName, email: '' },
     items: saleItems,

@@ -42,26 +42,6 @@ export async function setTenantActive(tenantId: string, isActive: boolean): Prom
 }
 
 /**
- * Marca manualmente se um tenant tem um plano pago ativo, mecanismo de
- * confirmação de pagamento deste projeto: sem gateway integrado (mesmo
- * padrão do M-Pesa/e-Mola), o cliente paga por fora e o superadmin ativa o
- * plano aqui. Ativar sempre restaura o login mesmo que o trial de 7 dias já
- * tenha terminado, ver o bloqueio em authService.login().
- */
-export async function setTenantSubscriptionActive(tenantId: string, active: boolean): Promise<Tenant> {
-  const tenant = await Tenant.findByPk(tenantId);
-
-  if (!tenant) {
-    throw new AppError('Estabelecimento não encontrado', 404);
-  }
-
-  tenant.subscription_active = active;
-  await tenant.save();
-
-  return tenant;
-}
-
-/**
  * Único mecanismo de "esqueci a senha" para um ADMIN de estabelecimento:
  * sem serviço de email configurado no projeto, a reposição é sempre manual:
  * o superadmin gera uma senha temporária aqui e passa-a ao cliente por

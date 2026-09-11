@@ -29,6 +29,17 @@ export class Product extends Model<InferAttributes<Product>, InferCreationAttrib
    * controlar), nunca "desconhecida".
    */
   declare expiry_date: string | null;
+  /**
+   * Controle por lotes (2026-09-10), opcional por produto: quando true,
+   * `stock_quantity` e `expiry_date` deste produto deixam de ser editados
+   * diretamente e passam a ser a soma e a validade mais próxima entre os
+   * seus ProductLot com stock, mantidos sincronizados por
+   * productLotService.syncProductFromLots. Uma venda desconta então dos
+   * lotes por ordem de validade mais próxima primeiro (FEFO), ver
+   * saleService.ts. Produtos que nunca ativarem isto continuam a funcionar
+   * exatamente como antes desta funcionalidade existir.
+   */
+  declare tracks_batches: CreationOptional<boolean>;
   declare is_active: CreationOptional<boolean>;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
@@ -112,6 +123,11 @@ Product.init(
     expiry_date: {
       type: DataTypes.DATEONLY,
       allowNull: true,
+    },
+    tracks_batches: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     is_active: {
       type: DataTypes.BOOLEAN,

@@ -1,6 +1,6 @@
 import { Fragment } from 'react';
 import { Box, Typography } from '@mui/material';
-import { getSaleItemProductName, MOBILE_MONEY_FLOW_LABELS, MobileMoneyFlow, PAYMENT_METHOD_LABELS, Sale, Tenant } from '../../types';
+import { getSaleItemProductName, PAYMENT_METHOD_LABELS, PaymentMethod, Sale, Tenant } from '../../types';
 import { formatMzn } from '../../utils/currency';
 import { formatDateTime } from '../../utils/date';
 import { formatQuantity } from '../../utils/quantity';
@@ -100,13 +100,8 @@ export default function ThermalReceipt({ sale, tenant }: ThermalReceiptProps) {
         <Typography sx={{ fontFamily: 'inherit' }}>
           Pagamento: {PAYMENT_METHOD_LABELS[sale.payment_method]}
         </Typography>
-        {sale.mobile_money_flow === MobileMoneyFlow.TRANSFER && sale.payment_reference && (
+        {sale.payment_method === PaymentMethod.TRANSFER && sale.payment_reference && (
           <Typography sx={{ fontFamily: 'inherit' }}>Ref.: {sale.payment_reference}</Typography>
-        )}
-        {sale.mobile_money_flow === MobileMoneyFlow.AGENT && sale.agent_margin_amount !== null && (
-          <Typography sx={{ fontFamily: 'inherit' }}>
-            {MOBILE_MONEY_FLOW_LABELS[MobileMoneyFlow.AGENT]} · Margem: {formatMzn(sale.agent_margin_amount)}
-          </Typography>
         )}
 
         <Typography align="center" sx={{ fontFamily: 'inherit', mt: 1 }}>

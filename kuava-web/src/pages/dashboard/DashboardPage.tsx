@@ -4,7 +4,6 @@ import PaymentsOutlinedIcon from '@mui/icons-material/PaymentsOutlined';
 import CalendarMonthOutlinedIcon from '@mui/icons-material/CalendarMonthOutlined';
 import ReceiptLongOutlinedIcon from '@mui/icons-material/ReceiptLongOutlined';
 import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
-import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 import EventBusyOutlinedIcon from '@mui/icons-material/EventBusyOutlined';
 import StatTile from '../../components/dashboard/StatTile';
 import SalesTrendChart from '../../components/dashboard/SalesTrendChart';
@@ -106,16 +105,6 @@ export default function DashboardPage() {
               sublabel="produtos a verificar"
               accent="warning"
               icon={<EventBusyOutlinedIcon fontSize="small" color="warning" />}
-            />
-          </Grid>
-        )}
-        {summary.agentMarginMonth.count > 0 && (
-          <Grid item xs={12} sm={6} md={3}>
-            <StatTile
-              label="Comissões de agente"
-              value={formatMzn(summary.agentMarginMonth.totalAmount)}
-              sublabel={`${summary.agentMarginMonth.count} levantamento${summary.agentMarginMonth.count === 1 ? '' : 's'} este mês`}
-              icon={<StorefrontOutlinedIcon fontSize="small" color="action" />}
             />
           </Grid>
         )}

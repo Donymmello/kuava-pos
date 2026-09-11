@@ -3,6 +3,7 @@ import authRoutes from './authRoutes';
 import dashboardRoutes from './dashboardRoutes';
 import productRoutes from './productRoutes';
 import saleRoutes from './saleRoutes';
+import subscriptionRoutes from './subscriptionRoutes';
 import superadminRoutes from './superadminRoutes';
 import tenantRoutes from './tenantRoutes';
 import userRoutes from './userRoutes';
@@ -15,6 +16,7 @@ router.use('/sales', saleRoutes);
 router.use('/users', userRoutes);
 router.use('/dashboard', dashboardRoutes);
 router.use('/tenants', tenantRoutes);
+router.use('/subscription', subscriptionRoutes);
 router.use('/superadmin', superadminRoutes);
 
 export default router;

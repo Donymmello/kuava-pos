@@ -3,6 +3,7 @@ import { sequelize, Product } from '../models';
 import { AppError } from '../utils/AppError';
 import { ProductUnit } from '../types/enums';
 import { roundQuantity } from './ivaService';
+import { createInitialLotForExistingStock } from './productLotService';
 
 const DUPLICATE_BARCODE_MESSAGE = 'Já existe um produto com este código de barras';
 
@@ -96,6 +97,8 @@ export interface CreateProductInput {
   unit?: ProductUnit;
   /** "AAAA-MM-DD", ou null para "sem validade a controlar". */
   expiry_date?: string | null;
+  /** Controle por lotes (ver Product.ts), false por omissão. */
+  tracks_batches?: boolean;
 }
 
 export async function createProduct(input: CreateProductInput): Promise<Product> {
@@ -129,8 +132,10 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       }
     }
 
+    let product: Product;
+
     try {
-      return await Product.create(
+      product = await Product.create(
         {
           tenant_id: input.tenantId,
           barcode: input.barcode ?? null,
@@ -143,6 +148,7 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
           category: input.category ?? null,
           unit: input.unit ?? ProductUnit.UN,
           expiry_date: input.expiry_date ?? null,
+          tracks_batches: input.tracks_batches ?? false,
         },
         { transaction },
       );
@@ -152,6 +158,22 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       }
       throw error;
     }
+
+    // Criado já com controle por lotes e algum stock inicial: esse stock
+    // vira o primeiro lote, para o produto não ficar com um número que
+    // nenhum lote sustenta (ver createInitialLotForExistingStock).
+    if (product.tracks_batches && product.stock_quantity > 0) {
+      await createInitialLotForExistingStock(
+        input.tenantId,
+        product.id,
+        product.stock_quantity,
+        product.expiry_date,
+        transaction,
+      );
+      await product.reload({ transaction });
+    }
+
+    return product;
   });
 }
 
@@ -169,6 +191,7 @@ export interface UpdateProductInput {
   unit?: ProductUnit;
   expiry_date?: string | null;
   is_active?: boolean;
+  tracks_batches?: boolean;
 }
 
 export async function updateProduct(input: UpdateProductInput): Promise<Product> {
@@ -194,6 +217,22 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
     if (!product) {
       throw new AppError('Produto não encontrado', 404);
     }
+
+    const wasTrackingBatches = product.tracks_batches;
+    const willTrackBatches = input.tracks_batches ?? product.tracks_batches;
+
+    // Enquanto o controle por lotes está ativo (já estava, e continua a
+    // estar), stock e validade vêm dos lotes, não são um campo solto para
+    // editar aqui, ver productLotService.ts.
+    if (willTrackBatches && wasTrackingBatches && (input.stock_quantity !== undefined || input.expiry_date !== undefined)) {
+      throw new AppError(
+        'Este produto controla stock por lotes: o stock e a validade vêm dos lotes, registe um novo lote em vez de editar isto diretamente.',
+        422,
+      );
+    }
+
+    const previousStockQuantity = product.stock_quantity;
+    const previousExpiryDate = product.expiry_date;
 
     if (input.barcode && input.barcode !== product.barcode) {
       const existing = await Product.findOne({
@@ -221,6 +260,7 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
           unit: input.unit ?? product.unit,
           expiry_date: input.expiry_date !== undefined ? input.expiry_date : product.expiry_date,
           is_active: input.is_active ?? product.is_active,
+          tracks_batches: willTrackBatches,
         },
         { transaction },
       );
@@ -229,6 +269,21 @@ export async function updateProduct(input: UpdateProductInput): Promise<Product>
         throw new AppError(DUPLICATE_BARCODE_MESSAGE, 409);
       }
       throw error;
+    }
+
+    // Ativou agora o controle por lotes (não estava ativo antes): o stock e
+    // a validade que já tinha viram o primeiro lote, para não se perder
+    // nada na transição, depois recarrega para devolver os valores certos
+    // (podem já ter mudado, ver syncProductFromLots).
+    if (willTrackBatches && !wasTrackingBatches) {
+      await createInitialLotForExistingStock(
+        input.tenantId,
+        product.id,
+        previousStockQuantity,
+        previousExpiryDate,
+        transaction,
+      );
+      await product.reload({ transaction });
     }
 
     return product;

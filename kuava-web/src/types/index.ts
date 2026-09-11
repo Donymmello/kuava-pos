@@ -41,7 +41,10 @@ export interface Tenant {
   // Plano/trial (2026-08-24): trial_ends_at é null para estabelecimentos
   // registados antes desta funcionalidade, nunca ficam bloqueados por isto.
   trial_ends_at: string | null;
-  subscription_active: boolean;
+  // Substitui o antigo subscription_active booleano (2026-09-09): null
+  // quando não há plano pago em vigor, uma data quando há (ver
+  // subscriptionService.ts no backend).
+  subscription_expires_at: string | null;
   created_at: string;
 }
 
@@ -56,8 +59,64 @@ export interface SuperadminTenant {
   email: string | null;
   is_active: boolean;
   trial_ends_at: string | null;
-  subscription_active: boolean;
+  subscription_expires_at: string | null;
   created_at: string;
+}
+
+/**
+ * Plano da subscrição da plataforma Kuava (2026-09-09). O cliente escolhe
+ * um destes, recebe uma fatura pro-forma com uma referência e paga por
+ * fora, o superadmin confirma manualmente (ver SubscriptionPage.tsx).
+ */
+export enum SubscriptionPlan {
+  MONTHLY = 'MONTHLY',
+  ANNUAL = 'ANNUAL',
+}
+
+export const SUBSCRIPTION_PLAN_LABELS: Record<SubscriptionPlan, string> = {
+  [SubscriptionPlan.MONTHLY]: 'Mensal',
+  [SubscriptionPlan.ANNUAL]: 'Anual',
+};
+
+export enum SubscriptionRequestStatus {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  CANCELLED = 'CANCELLED',
+}
+
+export interface SubscriptionRequest {
+  id: string;
+  plan: SubscriptionPlan;
+  amount: number;
+  reference: string;
+  status: SubscriptionRequestStatus;
+  created_at: string;
+  confirmed_at: string | null;
+}
+
+/** Igual a SubscriptionRequest, mas com o tenant incluído — só na listagem do superadmin. */
+export interface SuperadminSubscriptionRequest extends SubscriptionRequest {
+  tenant: { id: string; name: string; nuit: string } | null;
+}
+
+export interface SubscriptionPlanOption {
+  plan: SubscriptionPlan;
+  priceMzn: number;
+}
+
+export interface SubscriptionBankDetails {
+  bankName: string;
+  accountHolder: string;
+  nib: string;
+}
+
+export interface SubscriptionStatus {
+  hasAccess: boolean;
+  trialEndsAt: string | null;
+  subscriptionExpiresAt: string | null;
+  pendingRequest: SubscriptionRequest | null;
+  plans: SubscriptionPlanOption[];
+  bankDetails: SubscriptionBankDetails;
 }
 
 export interface TenantUser {
@@ -70,23 +129,24 @@ export interface TenantUser {
   created_at: string;
 }
 
+/**
+ * TRANSFER cobre qualquer pagamento recebido por transferência (M-Pesa,
+ * e-Mola, banco, ou o que o comerciante usar), decisão de 2026-09-09: o
+ * Kuava não distingue operadora nem mecanismo (Paga Fácil, agente,
+ * PaySuite, etc.), isso é escolha de cada comerciante. Só guarda uma
+ * referência livre e opcional (ver `payment_reference` em `Sale`).
+ */
 export enum PaymentMethod {
   CASH = 'CASH',
-  MPESA = 'MPESA',
-  EMOLA = 'EMOLA',
   CARD = 'CARD',
+  TRANSFER = 'TRANSFER',
 }
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   [PaymentMethod.CASH]: 'Numerário',
-  [PaymentMethod.MPESA]: 'M-Pesa',
-  [PaymentMethod.EMOLA]: 'e-Mola',
   [PaymentMethod.CARD]: 'Cartão',
+  [PaymentMethod.TRANSFER]: 'Transferência',
 };
-
-export function isMobileMoneyMethod(method: PaymentMethod): boolean {
-  return method === PaymentMethod.MPESA || method === PaymentMethod.EMOLA;
-}
 
 /**
  * Unidade de medida em que um produto é vendido. A maioria (mercearias,
@@ -124,22 +184,6 @@ export function isFractionalUnit(unit: ProductUnit): boolean {
   return unit !== ProductUnit.UN;
 }
 
-/**
- * Como um pagamento M-Pesa/e-Mola foi efetivamente recebido, não existe uma
- * API C2B simples para um POS pequeno se ligar, por isso a confirmação é
- * sempre manual: ou o cliente transferiu para o número da loja, ou a loja
- * atuou como agente (o cliente levantou e a loja ficou com uma margem).
- */
-export enum MobileMoneyFlow {
-  TRANSFER = 'TRANSFER',
-  AGENT = 'AGENT',
-}
-
-export const MOBILE_MONEY_FLOW_LABELS: Record<MobileMoneyFlow, string> = {
-  [MobileMoneyFlow.TRANSFER]: 'Transferência',
-  [MobileMoneyFlow.AGENT]: 'Agente (levantamento)',
-};
-
 export interface Product {
   id: string;
   tenant_id: string;
@@ -152,10 +196,29 @@ export interface Product {
   tax_rate: number;
   category: string | null;
   unit: ProductUnit;
-  /** "AAAA-MM-DD", ou null quando não há validade a controlar. */
+  /**
+   * "AAAA-MM-DD", ou null quando não há validade a controlar. Quando
+   * tracks_batches é true, este valor vem sozinho do lote mais próximo de
+   * vencer (ver ProductLot), não é editável diretamente.
+   */
   expiry_date: string | null;
   is_active: boolean;
   image_url?: string | null;
+  /**
+   * Controle por lotes (opcional por produto): quando true, stock_quantity
+   * e expiry_date vêm da soma/validade mais próxima entre os ProductLot
+   * deste produto, geridos em "Ver lotes" no Inventário.
+   */
+  tracks_batches: boolean;
+}
+
+export interface ProductLot {
+  id: string;
+  product_id: string;
+  quantity: number;
+  /** "AAAA-MM-DD", ou null quando este lote não tem validade indicada (fica para o fim ao vender, ver backend). */
+  expiry_date: string | null;
+  created_at: string;
 }
 
 export interface CartItem {
@@ -198,9 +261,7 @@ export interface Sale {
   tax_amount: number;
   payment_method: PaymentMethod;
   status: SaleStatus;
-  mobile_money_flow: MobileMoneyFlow | null;
   payment_reference: string | null;
-  agent_margin_amount: number | null;
   created_at: string;
   user?: { id: string; name: string; email: string } | null;
   items: SaleItemResult[];
@@ -273,7 +334,6 @@ export interface DashboardSummary {
   paymentMethodBreakdown: PaymentMethodTotal[];
   topProducts: TopProduct[];
   lowStockCount: number;
-  agentMarginMonth: SalesSummary;
   expiringCount: number;
   expiringProducts: ExpiringProduct[];
 }

@@ -10,11 +10,19 @@ export enum UserRole {
   SUPERADMIN = 'SUPERADMIN',
 }
 
+/**
+ * TRANSFER cobre qualquer pagamento recebido por transferência (M-Pesa,
+ * e-Mola, banco, ou o que o comerciante usar), decisão de 2026-09-09: o
+ * Kuava não distingue a operadora nem o mecanismo (Paga Fácil, agente,
+ * PaySuite, etc.), isso é escolha de cada comerciante e não precisa de
+ * integração nenhuma, só de um campo de referência livre (ver
+ * `payment_reference` em `Sale`). Substitui os antigos MPESA/EMOLA
+ * separados e o conceito de "agente"/margem retida.
+ */
 export enum PaymentMethod {
   CASH = 'CASH',
-  MPESA = 'MPESA',
-  EMOLA = 'EMOLA',
   CARD = 'CARD',
+  TRANSFER = 'TRANSFER',
 }
 
 export enum SaleStatus {
@@ -23,17 +31,27 @@ export enum SaleStatus {
 }
 
 /**
- * Como uma venda paga por M-Pesa/e-Mola foi efetivamente recebida, reflete
- * a prática comum em Moçambique, onde não existe uma API C2B simples de
- * ligar a um POS pequeno:
- * - TRANSFER: o cliente transfere para o número da loja; o caixa confere a
- *   notificação e confirma manualmente (com referência da SMS).
- * - AGENT: a loja funciona como agente e o cliente faz um levantamento; a
- *   loja fica com uma margem/comissão sobre o valor.
+ * Plano da subscrição da plataforma Kuava (não confundir com o
+ * PaymentMethod, que é dos pagamentos das vendas no balcão). Decisão de
+ * 2026-09-09: sem gateway integrado, o cliente escolhe o plano, recebe uma
+ * fatura pro-forma com os dados bancários e uma referência única, paga por
+ * fora, e o superadmin confirma manualmente (ver subscriptionService.ts).
  */
-export enum MobileMoneyFlow {
-  TRANSFER = 'TRANSFER',
-  AGENT = 'AGENT',
+export enum SubscriptionPlan {
+  MONTHLY = 'MONTHLY',
+  ANNUAL = 'ANNUAL',
+}
+
+/** Quantos dias uma confirmação de cada plano acrescenta a subscription_expires_at. */
+export const SUBSCRIPTION_PLAN_DURATION_DAYS: Record<SubscriptionPlan, number> = {
+  [SubscriptionPlan.MONTHLY]: 30,
+  [SubscriptionPlan.ANNUAL]: 365,
+};
+
+export enum SubscriptionRequestStatus {
+  PENDING = 'PENDING',
+  CONFIRMED = 'CONFIRMED',
+  CANCELLED = 'CANCELLED',
 }
 
 /**

@@ -1,6 +1,6 @@
 import { QueryTypes } from 'sequelize';
 import { sequelize } from '../config/database';
-import { MobileMoneyFlow, PaymentMethod, SaleStatus } from '../types/enums';
+import { PaymentMethod, SaleStatus } from '../types/enums';
 
 export interface SalesSummary {
   totalAmount: number;
@@ -40,8 +40,6 @@ export interface DashboardSummary {
   paymentMethodBreakdown: PaymentMethodTotal[];
   topProducts: TopProduct[];
   lowStockCount: number;
-  /** Total de margens/comissões retidas como agente M-Pesa/e-Mola este mês. */
-  agentMarginMonth: SalesSummary;
   /** Produtos ativos, com validade preenchida, a expirar nos próximos 30 dias (ou já expirados). */
   expiringCount: number;
   /** Os 5 produtos mais urgentes dessa lista, para o painel, ver `expiringCount` para o total. */
@@ -172,25 +170,6 @@ async function fetchTopProducts(tenantId: string, since: Date): Promise<TopProdu
   }));
 }
 
-async function fetchAgentMarginSummary(tenantId: string, since: Date): Promise<SalesSummary> {
-  const rows = await sequelize.query<{ total: string | null; count: string }>(
-    `SELECT COALESCE(SUM(agent_margin_amount), 0) AS total, COUNT(*) AS count
-     FROM sales
-     WHERE tenant_id = :tenantId AND status = :status AND created_at >= :since
-       AND mobile_money_flow = :agentFlow`,
-    {
-      replacements: { tenantId, status: SaleStatus.COMPLETED, since, agentFlow: MobileMoneyFlow.AGENT },
-      type: QueryTypes.SELECT,
-    },
-  );
-
-  const row = rows[0];
-  return {
-    totalAmount: Number(row?.total ?? 0),
-    count: Number(row?.count ?? 0),
-  };
-}
-
 async function fetchLowStockCount(tenantId: string): Promise<number> {
   const rows = await sequelize.query<{ count: string }>(
     `SELECT COUNT(*) AS count
@@ -268,7 +247,6 @@ export async function getDashboardSummary(tenantId: string): Promise<DashboardSu
     paymentMethodBreakdown,
     topProducts,
     lowStockCount,
-    agentMarginMonth,
     expiringCount,
     expiringProducts,
   ] = await Promise.all([
@@ -278,7 +256,6 @@ export async function getDashboardSummary(tenantId: string): Promise<DashboardSu
     fetchPaymentMethodBreakdown(tenantId, monthStart),
     fetchTopProducts(tenantId, monthStart),
     fetchLowStockCount(tenantId),
-    fetchAgentMarginSummary(tenantId, monthStart),
     fetchExpiringCount(tenantId, thresholdDateKey),
     fetchExpiringProducts(tenantId, now, thresholdDateKey),
   ]);
@@ -292,7 +269,6 @@ export async function getDashboardSummary(tenantId: string): Promise<DashboardSu
     paymentMethodBreakdown,
     topProducts,
     lowStockCount,
-    agentMarginMonth,
     expiringCount,
     expiringProducts,
   };

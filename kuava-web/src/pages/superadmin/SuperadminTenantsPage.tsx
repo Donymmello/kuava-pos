@@ -25,17 +25,20 @@ import BlockOutlinedIcon from '@mui/icons-material/BlockOutlined';
 import RestoreOutlinedIcon from '@mui/icons-material/RestoreOutlined';
 import LockResetOutlinedIcon from '@mui/icons-material/LockResetOutlined';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
-import PaidOutlinedIcon from '@mui/icons-material/PaidOutlined';
-import MoneyOffOutlinedIcon from '@mui/icons-material/MoneyOffOutlined';
+import CheckCircleOutlinedIcon from '@mui/icons-material/CheckCircleOutlined';
+import CancelOutlinedIcon from '@mui/icons-material/CancelOutlined';
 import {
+  cancelSubscriptionRequest,
+  confirmSubscriptionRequest,
   fetchAllTenants,
+  fetchPendingSubscriptionRequests,
   ResetAdminPasswordResult,
   resetTenantAdminPassword,
   setTenantActive,
-  setTenantSubscriptionActive,
 } from '../../services/superadminService';
-import { SuperadminTenant } from '../../types';
+import { SUBSCRIPTION_PLAN_LABELS, SuperadminSubscriptionRequest, SuperadminTenant } from '../../types';
 import { formatDateTime } from '../../utils/date';
+import { formatMzn } from '../../utils/currency';
 
 interface PlanStatus {
   label: string;
@@ -43,11 +46,14 @@ interface PlanStatus {
 }
 
 // Fase inicial: um único plano pago + 7 dias de teste gratuito, sem
-// gateway de pagamento, o superadmin ativa o plano manualmente depois de
-// o cliente pagar por fora (ver kuava-api/src/services/superadminService.ts).
+// gateway de pagamento, o cliente escolhe o plano na app, paga por fora, e
+// o superadmin confirma manualmente no painel abaixo (ver
+// kuava-api/src/services/subscriptionService.ts).
 function getPlanStatus(tenant: SuperadminTenant): PlanStatus {
-  if (tenant.subscription_active) {
-    return { label: 'Plano ativo', color: 'success' };
+  const now = Date.now();
+
+  if (tenant.subscription_expires_at && new Date(tenant.subscription_expires_at).getTime() > now) {
+    return { label: `Plano ativo até ${formatDateTime(tenant.subscription_expires_at)}`, color: 'success' };
   }
 
   if (!tenant.trial_ends_at) {
@@ -57,13 +63,13 @@ function getPlanStatus(tenant: SuperadminTenant): PlanStatus {
   }
 
   const trialEnd = new Date(tenant.trial_ends_at).getTime();
-  const daysLeft = Math.ceil((trialEnd - Date.now()) / (24 * 60 * 60 * 1000));
+  const daysLeft = Math.ceil((trialEnd - now) / (24 * 60 * 60 * 1000));
 
   if (daysLeft > 0) {
     return { label: `Em teste: ${daysLeft} dia${daysLeft === 1 ? '' : 's'} restante${daysLeft === 1 ? '' : 's'}`, color: 'warning' };
   }
 
-  return { label: 'Teste expirado', color: 'error' };
+  return { label: 'Teste expirado, sem plano', color: 'error' };
 }
 
 export default function SuperadminTenantsPage() {
@@ -72,6 +78,10 @@ export default function SuperadminTenantsPage() {
   const [feedback, setFeedback] = useState<{ severity: 'success' | 'error'; message: string } | null>(
     null,
   );
+
+  const [pendingRequests, setPendingRequests] = useState<SuperadminSubscriptionRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
+  const [requestActionId, setRequestActionId] = useState<string | null>(null);
 
   const [resetTarget, setResetTarget] = useState<SuperadminTenant | null>(null);
   const [resetSubmitting, setResetSubmitting] = useState(false);
@@ -89,9 +99,22 @@ export default function SuperadminTenantsPage() {
     }
   }, []);
 
+  const loadPendingRequests = useCallback(async () => {
+    setLoadingRequests(true);
+    try {
+      const result = await fetchPendingSubscriptionRequests();
+      setPendingRequests(result);
+    } catch {
+      setFeedback({ severity: 'error', message: 'Não foi possível carregar os pedidos de assinatura.' });
+    } finally {
+      setLoadingRequests(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadTenants();
-  }, [loadTenants]);
+    loadPendingRequests();
+  }, [loadTenants, loadPendingRequests]);
 
   async function handleToggleActive(tenant: SuperadminTenant) {
     try {
@@ -108,19 +131,32 @@ export default function SuperadminTenantsPage() {
     }
   }
 
-  async function handleToggleSubscription(tenant: SuperadminTenant) {
-    const nextActive = !tenant.subscription_active;
+  async function handleConfirmRequest(request: SuperadminSubscriptionRequest) {
+    setRequestActionId(request.id);
     try {
-      await setTenantSubscriptionActive(tenant.id, nextActive);
+      await confirmSubscriptionRequest(request.id);
       setFeedback({
         severity: 'success',
-        message: nextActive
-          ? `Plano de "${tenant.name}" ativado. O estabelecimento já pode entrar mesmo que o teste tenha terminado.`
-          : `Plano de "${tenant.name}" desativado.`,
+        message: `Pedido de "${request.tenant?.name ?? 'estabelecimento'}" confirmado, assinatura estendida.`,
       });
-      await loadTenants();
+      await Promise.all([loadPendingRequests(), loadTenants()]);
     } catch {
-      setFeedback({ severity: 'error', message: 'Não foi possível atualizar o plano do estabelecimento.' });
+      setFeedback({ severity: 'error', message: 'Não foi possível confirmar o pedido.' });
+    } finally {
+      setRequestActionId(null);
+    }
+  }
+
+  async function handleCancelRequest(request: SuperadminSubscriptionRequest) {
+    setRequestActionId(request.id);
+    try {
+      await cancelSubscriptionRequest(request.id);
+      setFeedback({ severity: 'success', message: 'Pedido cancelado.' });
+      await loadPendingRequests();
+    } catch {
+      setFeedback({ severity: 'error', message: 'Não foi possível cancelar o pedido.' });
+    } finally {
+      setRequestActionId(null);
     }
   }
 
@@ -158,6 +194,76 @@ export default function SuperadminTenantsPage() {
 
   return (
     <Box sx={{ height: '100%', overflowY: 'auto', p: 3 }}>
+      <Stack sx={{ mb: 3 }}>
+        <Typography variant="h5">Pedidos de assinatura</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Confirma depois de veres a transferência chegar (usa a referência para identificar o pagamento)
+        </Typography>
+      </Stack>
+
+      <Table size="small" sx={{ mb: 4 }}>
+        <TableHead>
+          <TableRow>
+            <TableCell>Estabelecimento</TableCell>
+            <TableCell>Plano</TableCell>
+            <TableCell align="right">Valor</TableCell>
+            <TableCell>Referência</TableCell>
+            <TableCell>Pedido em</TableCell>
+            <TableCell align="right">Ações</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {!loadingRequests && pendingRequests.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                Nenhum pedido de assinatura por confirmar.
+              </TableCell>
+            </TableRow>
+          )}
+          {pendingRequests.map((request) => (
+            <TableRow key={request.id} hover>
+              <TableCell>
+                {request.tenant?.name ?? '-'}
+                {request.tenant?.nuit && (
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    NUIT: {request.tenant.nuit}
+                  </Typography>
+                )}
+              </TableCell>
+              <TableCell>{SUBSCRIPTION_PLAN_LABELS[request.plan]}</TableCell>
+              <TableCell align="right">{formatMzn(request.amount)}</TableCell>
+              <TableCell sx={{ fontFamily: 'monospace' }}>{request.reference}</TableCell>
+              <TableCell>{formatDateTime(request.created_at)}</TableCell>
+              <TableCell align="right">
+                <Tooltip title="Confirmar pagamento e estender a assinatura">
+                  <span>
+                    <IconButton
+                      size="small"
+                      color="success"
+                      disabled={requestActionId === request.id}
+                      onClick={() => handleConfirmRequest(request)}
+                    >
+                      <CheckCircleOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Cancelar pedido">
+                  <span>
+                    <IconButton
+                      size="small"
+                      disabled={requestActionId === request.id}
+                      onClick={() => handleCancelRequest(request)}
+                    >
+                      <CancelOutlinedIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+
       <Stack sx={{ mb: 3 }}>
         <Typography variant="h5">Estabelecimentos</Typography>
         <Typography variant="body2" color="text.secondary">
@@ -208,15 +314,6 @@ export default function SuperadminTenantsPage() {
                   <Tooltip title="Repor senha do ADMIN">
                     <IconButton size="small" onClick={() => setResetTarget(tenant)}>
                       <LockResetOutlinedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title={tenant.subscription_active ? 'Desativar plano' : 'Ativar plano'}>
-                    <IconButton size="small" onClick={() => handleToggleSubscription(tenant)}>
-                      {tenant.subscription_active ? (
-                        <MoneyOffOutlinedIcon fontSize="small" />
-                      ) : (
-                        <PaidOutlinedIcon fontSize="small" />
-                      )}
                     </IconButton>
                   </Tooltip>
                   <Tooltip title={tenant.is_active ? 'Desativar' : 'Reativar'}>

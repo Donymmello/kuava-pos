@@ -175,23 +175,21 @@ describe('quantidades fracionárias (produtos vendidos por peso/comprimento)', (
   });
 });
 
-describe('M-Pesa/e-Mola — confirmação manual (opcional)', () => {
-  it('finaliza uma venda M-Pesa sem indicar fluxo/referência/margem nenhuns', async () => {
+describe('Transferência — referência livre (opcional)', () => {
+  it('finaliza uma venda por transferência sem indicar referência nenhuma', async () => {
     const tenant = await registerTestTenant();
     const product = await createTestProduct(tenant.tenantId, { stock_quantity: 10 });
 
     const res = await api
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.token}`)
-      .send({ payment_method: 'MPESA', items: [{ product_id: product.id, quantity: 1 }] });
+      .send({ payment_method: 'TRANSFER', items: [{ product_id: product.id, quantity: 1 }] });
 
     expect(res.status).toBe(201);
-    expect(res.body.data.mobile_money_flow).toBeNull();
     expect(res.body.data.payment_reference).toBeNull();
-    expect(res.body.data.agent_margin_amount).toBeNull();
   });
 
-  it('guarda a referência da transferência quando indicada, e null quando só espaços', async () => {
+  it('guarda a referência quando indicada, e null quando só espaços', async () => {
     const tenant = await registerTestTenant();
     const product = await createTestProduct(tenant.tenantId, { stock_quantity: 10 });
 
@@ -199,9 +197,8 @@ describe('M-Pesa/e-Mola — confirmação manual (opcional)', () => {
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.token}`)
       .send({
-        payment_method: 'MPESA',
+        payment_method: 'TRANSFER',
         items: [{ product_id: product.id, quantity: 1 }],
-        mobile_money_flow: 'TRANSFER',
         payment_reference: 'CI250823.1234.A56789',
       });
     expect(withRef.status).toBe(201);
@@ -213,40 +210,27 @@ describe('M-Pesa/e-Mola — confirmação manual (opcional)', () => {
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.token}`)
       .send({
-        payment_method: 'EMOLA',
+        payment_method: 'TRANSFER',
         items: [{ product_id: product.id, quantity: 1 }],
-        mobile_money_flow: 'TRANSFER',
         payment_reference: '   ',
       });
     expect(withBlankRef.status).toBe(201);
     expect(withBlankRef.body.data.payment_reference).toBeNull();
   });
 
-  it('guarda a margem do agente quando válida, e rejeita quando negativa', async () => {
+  it('ignora a referência quando o método não é TRANSFER', async () => {
     const tenant = await registerTestTenant();
     const product = await createTestProduct(tenant.tenantId, { stock_quantity: 10 });
 
-    const valid = await api
+    const res = await api
       .post('/api/sales')
       .set('Authorization', `Bearer ${tenant.token}`)
       .send({
-        payment_method: 'EMOLA',
+        payment_method: 'CASH',
         items: [{ product_id: product.id, quantity: 1 }],
-        mobile_money_flow: 'AGENT',
-        agent_margin_amount: 5.5,
+        payment_reference: 'não devia ficar guardado',
       });
-    expect(valid.status).toBe(201);
-    expect(valid.body.data.agent_margin_amount).toBeCloseTo(5.5);
-
-    const negative = await api
-      .post('/api/sales')
-      .set('Authorization', `Bearer ${tenant.token}`)
-      .send({
-        payment_method: 'EMOLA',
-        items: [{ product_id: product.id, quantity: 1 }],
-        mobile_money_flow: 'AGENT',
-        agent_margin_amount: -5,
-      });
-    expect(negative.status).toBe(422);
+    expect(res.status).toBe(201);
+    expect(res.body.data.payment_reference).toBeNull();
   });
 });

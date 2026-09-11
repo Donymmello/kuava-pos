@@ -1,10 +1,9 @@
 import { UniqueConstraintError } from 'sequelize';
 import { sequelize, Product, Sale, SaleItem } from '../models';
-import { isFractionalUnit, MobileMoneyFlow, PaymentMethod, SaleStatus } from '../types/enums';
+import { isFractionalUnit, PaymentMethod, SaleStatus } from '../types/enums';
 import { AppError } from '../utils/AppError';
 import { calculateLineTotals, roundCurrency, roundQuantity } from './ivaService';
-
-const MOBILE_MONEY_METHODS: ReadonlySet<PaymentMethod> = new Set([PaymentMethod.MPESA, PaymentMethod.EMOLA]);
+import { consumeFromLots, restoreToLots } from './productLotService';
 
 export interface SaleItemInput {
   product_id: string;
@@ -23,17 +22,13 @@ export interface CreateSaleInput {
    */
   clientRef?: string;
   /**
-   * Opcional, só relevante quando paymentMethod é MPESA/EMOLA: distingue
-   * transferência normal de levantamento como agente, não existe API C2B
-   * simples para um POS pequeno se ligar, por isso a confirmação é sempre
-   * manual. Fica de fora deliberadamente do fluxo obrigatório de finalizar a
-   * venda, para não atrasar o caixa; quando indicado, tem de ser válido.
+   * Opcional, referência livre (ex.: código de confirmação de M-Pesa/e-Mola,
+   * ou qualquer outra nota do caixa), só guardada quando paymentMethod é
+   * TRANSFER. O Kuava não distingue operadora nem mecanismo (Paga Fácil,
+   * agente, PaySuite, transferência bancária), isso é escolha de cada
+   * comerciante, ver enums.ts.
    */
-  mobileMoneyFlow?: MobileMoneyFlow;
-  /** Opcional, referência da SMS de confirmação, quando mobileMoneyFlow é TRANSFER. */
   paymentReference?: string;
-  /** Opcional, margem/comissão retida pela loja, quando mobileMoneyFlow é AGENT; se indicada, não pode ser negativa. */
-  agentMarginAmount?: number;
 }
 
 export interface SaleWithItems {
@@ -44,9 +39,7 @@ export interface SaleWithItems {
   tax_amount: number;
   payment_method: PaymentMethod;
   status: SaleStatus;
-  mobile_money_flow: MobileMoneyFlow | null;
   payment_reference: string | null;
-  agent_margin_amount: number | null;
   created_at: Date;
   items: Array<{
     id: string;
@@ -70,9 +63,7 @@ async function findSaleWithItemsByClientRef(
     tax_amount: number;
     payment_method: PaymentMethod;
     status: SaleStatus;
-    mobile_money_flow: MobileMoneyFlow | null;
     payment_reference: string | null;
-    agent_margin_amount: number | null;
     created_at: Date;
     items: Array<{
       id: string;
@@ -103,9 +94,7 @@ async function findSaleWithItemsByClientRef(
     tax_amount: plain.tax_amount,
     payment_method: plain.payment_method,
     status: plain.status,
-    mobile_money_flow: plain.mobile_money_flow,
     payment_reference: plain.payment_reference,
-    agent_margin_amount: plain.agent_margin_amount,
     created_at: plain.created_at,
     items: plain.items.map((item) => ({
       id: item.id,
@@ -125,27 +114,6 @@ export async function createSale(input: CreateSaleInput): Promise<SaleWithItems>
 
   if (!Object.values(PaymentMethod).includes(input.paymentMethod)) {
     throw new AppError('Método de pagamento inválido', 422);
-  }
-
-  // M-Pesa/e-Mola não têm uma API C2B simples de ligar a um POS pequeno:
-  // a confirmação é sempre manual, e distinguimos como o dinheiro chegou:
-  // transferência normal (com referência da SMS) ou levantamento como agente
-  // (com a margem/comissão que a loja fica a reter). Nada disto é obrigatório
-  // (o caixa pode finalizar sem indicar nada, para não travar o atendimento),
-  // mas se ele indicar alguma coisa, tem de fazer sentido.
-  if (MOBILE_MONEY_METHODS.has(input.paymentMethod)) {
-    if (input.mobileMoneyFlow && !Object.values(MobileMoneyFlow).includes(input.mobileMoneyFlow)) {
-      throw new AppError('Fluxo de pagamento M-Pesa/e-Mola inválido', 422);
-    }
-
-    if (
-      input.mobileMoneyFlow === MobileMoneyFlow.AGENT &&
-      input.agentMarginAmount !== undefined &&
-      input.agentMarginAmount !== null &&
-      (Number.isNaN(input.agentMarginAmount) || input.agentMarginAmount < 0)
-    ) {
-      throw new AppError('O valor da margem cobrada não pode ser negativo', 422);
-    }
   }
 
   // Reenvio de uma venda já sincronizada (ex.: o POS tentou sincronizar,
@@ -249,8 +217,6 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
       });
     }
 
-    const isMobileMoney = MOBILE_MONEY_METHODS.has(input.paymentMethod);
-
     const sale = await Sale.create(
       {
         tenant_id: input.tenantId,
@@ -260,15 +226,8 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
         payment_method: input.paymentMethod,
         status: SaleStatus.COMPLETED,
         client_ref: input.clientRef ?? null,
-        mobile_money_flow: isMobileMoney ? input.mobileMoneyFlow ?? null : null,
         payment_reference:
-          isMobileMoney && input.mobileMoneyFlow === MobileMoneyFlow.TRANSFER
-            ? input.paymentReference?.trim() || null
-            : null,
-        agent_margin_amount:
-          isMobileMoney && input.mobileMoneyFlow === MobileMoneyFlow.AGENT
-            ? input.agentMarginAmount ?? null
-            : null,
+          input.paymentMethod === PaymentMethod.TRANSFER ? input.paymentReference?.trim() || null : null,
       },
       { transaction },
     );
@@ -284,10 +243,19 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
       { transaction },
     );
 
-    // Dá baixa automática no stock de cada produto vendido.
-    for (const item of itemsToCreate) {
+    // Dá baixa automática no stock de cada produto vendido. Produtos com
+    // tracks_batches (ver Product.ts) descontam dos lotes por ordem de
+    // validade mais próxima primeiro (FEFO) em vez de um decremento direto,
+    // ver productLotService.consumeFromLots.
+    for (let index = 0; index < itemsToCreate.length; index += 1) {
+      const item = itemsToCreate[index];
       const product = productsById.get(item.product_id) as Product;
-      await product.decrement('stock_quantity', { by: item.quantity, transaction });
+
+      if (product.tracks_batches) {
+        await consumeFromLots(product.id, item.quantity, createdItems[index].id, transaction);
+      } else {
+        await product.decrement('stock_quantity', { by: item.quantity, transaction });
+      }
     }
 
     return {
@@ -298,9 +266,7 @@ async function createSaleInternal(input: CreateSaleInput): Promise<SaleWithItems
       tax_amount: sale.tax_amount,
       payment_method: sale.payment_method,
       status: sale.status,
-      mobile_money_flow: sale.mobile_money_flow,
       payment_reference: sale.payment_reference,
-      agent_margin_amount: sale.agent_margin_amount,
       created_at: sale.created_at,
       items: createdItems.map((created, index) => ({
         id: created.id,
@@ -333,11 +299,23 @@ export async function cancelSale(tenantId: string, saleId: string): Promise<Sale
     const items = await SaleItem.findAll({ where: { sale_id: sale.id }, transaction });
 
     for (const item of items) {
-      await Product.increment('stock_quantity', {
-        by: item.quantity,
+      // O produto pode ter sido desativado entretanto (nunca é apagado de
+      // facto, só desativado, ver productService.deleteProduct), mas por
+      // segurança: sem produto não há stock nenhum a repor.
+      const product = await Product.findOne({
         where: { id: item.product_id, tenant_id: tenantId },
         transaction,
       });
+
+      if (!product) {
+        continue;
+      }
+
+      if (product.tracks_batches) {
+        await restoreToLots(item.id, transaction);
+      } else {
+        await product.increment('stock_quantity', { by: item.quantity, transaction });
+      }
     }
 
     await sale.update({ status: SaleStatus.CANCELLED }, { transaction });

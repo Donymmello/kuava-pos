@@ -8,9 +8,10 @@ import { AppError } from '../utils/AppError';
 const SALT_ROUNDS = 10;
 
 // Fase inicial (2026-08-24): todo o estabelecimento novo entra num período
-// de teste gratuito de 7 dias antes de precisar de um plano pago, ver o
-// bloqueio no login() abaixo e a ativação manual do plano no painel de
-// superadmin (superadminService.setTenantSubscriptionActive).
+// de teste gratuito de 7 dias antes de precisar de um plano pago. Desde
+// 2026-09-09 isto já não bloqueia o login (ver o comentário em login()
+// abaixo), só decide quando a página de assinatura passa a ser obrigatória
+// (kuava-web/src/pages/subscription/SubscriptionPage.tsx).
 const TRIAL_PERIOD_DAYS = 7;
 
 function trialEndDate(): Date {
@@ -82,11 +83,11 @@ export async function registerTenant(input: RegisterTenantInput): Promise<AuthRe
         address: input.address ?? null,
         phone: input.phone ?? null,
         email: input.tenantEmail ?? null,
-        // Fase inicial: começa em teste gratuito, não com um plano pago,
-        // ver TRIAL_PERIOD_DAYS acima. A coluna tem defaultValue:true, por
-        // isso é preciso passar subscription_active explicitamente aqui.
+        // Começa em teste gratuito, não com um plano pago (ver
+        // TRIAL_PERIOD_DAYS acima), subscription_expires_at só passa a ter
+        // valor quando o superadmin confirmar um pedido de assinatura.
         trial_ends_at: trialEndDate(),
-        subscription_active: false,
+        subscription_expires_at: null,
       },
       { transaction },
     );
@@ -140,17 +141,12 @@ export async function login(input: LoginInput): Promise<AuthResult> {
       throw new AppError('Este estabelecimento foi desativado. Contacte o suporte.', 401);
     }
 
-    // Bloqueia o login (não as chamadas de uma sessão já iniciada, mesmo
-    // padrão do bloqueio de is_active acima) quando o período de teste
-    // gratuito acabou e ninguém ativou um plano pago ainda. Tenants sem
-    // trial_ends_at (registados antes desta funcionalidade) nunca são
-    // afetados por esta verificação.
-    if (!tenant.subscription_active && tenant.trial_ends_at && new Date() > new Date(tenant.trial_ends_at)) {
-      throw new AppError(
-        'O período de teste gratuito (7 dias) deste estabelecimento terminou. Contacte o suporte para ativar um plano e continuar a usar a Kuava POS.',
-        401,
-      );
-    }
+    // Decisão de 2026-09-09: o login deixou de bloquear quando o trial
+    // expira sem plano pago, o utilizador entra sempre, e o frontend
+    // mostra a página de assinatura em vez das páginas normais (ver
+    // SubscriptionGuard.tsx). A aplicação real do bloqueio passou para o
+    // requireActiveSubscription nas rotas de negócio (produtos, vendas,
+    // painel, utilizadores).
   }
 
   const token = issueToken(user);

@@ -19,9 +19,8 @@ import {
 } from '@mui/material';
 import {
   getSaleItemProductName,
-  MOBILE_MONEY_FLOW_LABELS,
-  MobileMoneyFlow,
   PAYMENT_METHOD_LABELS,
+  PaymentMethod,
   Sale,
   SALE_STATUS_LABELS,
   Tenant,
@@ -89,9 +88,6 @@ export default function SaleDetailDialog({
 
           <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
             <Chip size="small" label={PAYMENT_METHOD_LABELS[sale.payment_method]} variant="outlined" />
-            {sale.mobile_money_flow && (
-              <Chip size="small" label={MOBILE_MONEY_FLOW_LABELS[sale.mobile_money_flow]} variant="outlined" />
-            )}
             <Chip
               size="small"
               label={SALE_STATUS_LABELS[sale.status]}
@@ -100,14 +96,9 @@ export default function SaleDetailDialog({
             />
           </Stack>
 
-          {sale.mobile_money_flow === MobileMoneyFlow.TRANSFER && sale.payment_reference && (
+          {sale.payment_method === PaymentMethod.TRANSFER && sale.payment_reference && (
             <Typography variant="body2" color="text.secondary">
-              Referência da confirmação: {sale.payment_reference}
-            </Typography>
-          )}
-          {sale.mobile_money_flow === MobileMoneyFlow.AGENT && sale.agent_margin_amount !== null && (
-            <Typography variant="body2" color="text.secondary">
-              Margem retida como agente: {formatMzn(sale.agent_margin_amount)}
+              Referência: {sale.payment_reference}
             </Typography>
           )}
 

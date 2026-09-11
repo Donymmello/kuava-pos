@@ -14,7 +14,7 @@ function serializeTenant(tenant: Tenant) {
     default_tax_rate: tenant.default_tax_rate,
     is_active: tenant.is_active,
     trial_ends_at: tenant.trial_ends_at,
-    subscription_active: tenant.subscription_active,
+    subscription_expires_at: tenant.subscription_expires_at,
     created_at: tenant.created_at,
   };
 }

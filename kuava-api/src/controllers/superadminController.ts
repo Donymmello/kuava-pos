@@ -1,13 +1,13 @@
 import { NextFunction, Request, Response } from 'express';
-import { Tenant } from '../models';
+import { SubscriptionRequest, Tenant } from '../models';
 import { AppError } from '../utils/AppError';
 import { sendSuccess } from '../utils/apiResponse';
+import { listTenants, resetTenantAdminPassword, setTenantActive } from '../services/superadminService';
 import {
-  listTenants,
-  resetTenantAdminPassword,
-  setTenantActive,
-  setTenantSubscriptionActive,
-} from '../services/superadminService';
+  cancelSubscriptionRequest,
+  confirmSubscriptionRequest,
+  listPendingSubscriptionRequests,
+} from '../services/subscriptionService';
 
 function serializeTenant(tenant: Tenant) {
   return {
@@ -19,8 +19,25 @@ function serializeTenant(tenant: Tenant) {
     email: tenant.email,
     is_active: tenant.is_active,
     trial_ends_at: tenant.trial_ends_at,
-    subscription_active: tenant.subscription_active,
+    subscription_expires_at: tenant.subscription_expires_at,
     created_at: tenant.created_at,
+  };
+}
+
+function serializeSubscriptionRequest(request: SubscriptionRequest) {
+  const plain = request.get({ plain: true }) as SubscriptionRequest & {
+    tenant?: { id: string; name: string; nuit: string } | null;
+  };
+
+  return {
+    id: plain.id,
+    plan: plain.plan,
+    amount: plain.amount,
+    reference: plain.reference,
+    status: plain.status,
+    created_at: plain.created_at,
+    confirmed_at: plain.confirmed_at,
+    tenant: plain.tenant ? { id: plain.tenant.id, name: plain.tenant.name, nuit: plain.tenant.nuit } : null,
   };
 }
 
@@ -39,28 +56,16 @@ export async function setTenantActiveHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { is_active: isActive, subscription_active: subscriptionActive } = req.body;
+    const { is_active: isActive } = req.body;
 
-    if (typeof isActive !== 'boolean' && typeof subscriptionActive !== 'boolean') {
-      throw new AppError('Indique pelo menos um campo: is_active ou subscription_active (booleano)', 422);
+    if (typeof isActive !== 'boolean') {
+      throw new AppError('Indique o campo is_active (booleano)', 422);
     }
 
-    let tenant: Tenant | null = null;
-    let message = 'Estabelecimento atualizado com sucesso';
+    const tenant = await setTenantActive(req.params.id, isActive);
+    const message = isActive ? 'Estabelecimento ativado com sucesso' : 'Estabelecimento desativado com sucesso';
 
-    if (typeof isActive === 'boolean') {
-      tenant = await setTenantActive(req.params.id, isActive);
-      message = isActive ? 'Estabelecimento ativado com sucesso' : 'Estabelecimento desativado com sucesso';
-    }
-
-    if (typeof subscriptionActive === 'boolean') {
-      tenant = await setTenantSubscriptionActive(req.params.id, subscriptionActive);
-      message = subscriptionActive
-        ? 'Plano ativado com sucesso. O estabelecimento já pode entrar mesmo que o teste tenha terminado'
-        : 'Plano desativado';
-    }
-
-    sendSuccess(res, serializeTenant(tenant as Tenant), message);
+    sendSuccess(res, serializeTenant(tenant), message);
   } catch (error) {
     next(error);
   }
@@ -74,6 +79,45 @@ export async function resetTenantAdminPasswordHandler(
   try {
     const result = await resetTenantAdminPassword(req.params.id);
     sendSuccess(res, result, 'Senha reposta com sucesso');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listPendingSubscriptionRequestsHandler(
+  _req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const requests = await listPendingSubscriptionRequests();
+    sendSuccess(res, requests.map(serializeSubscriptionRequest));
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function confirmSubscriptionRequestHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const { request } = await confirmSubscriptionRequest(req.params.id);
+    sendSuccess(res, serializeSubscriptionRequest(request), 'Pedido confirmado, assinatura estendida com sucesso');
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function cancelSubscriptionRequestHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
+  try {
+    const request = await cancelSubscriptionRequest(req.params.id);
+    sendSuccess(res, serializeSubscriptionRequest(request), 'Pedido cancelado');
   } catch (error) {
     next(error);
   }

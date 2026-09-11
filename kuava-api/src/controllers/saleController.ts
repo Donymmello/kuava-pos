@@ -3,25 +3,17 @@ import { Sale, SaleItem, Product, User } from '../models';
 import { AppError } from '../utils/AppError';
 import { sendSuccess } from '../utils/apiResponse';
 import { cancelSale, createSale } from '../services/saleService';
-import { MobileMoneyFlow, PaymentMethod } from '../types/enums';
+import { PaymentMethod } from '../types/enums';
 
 export async function registerSale(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const tenantId = req.tenantId as string;
     const userId = req.user?.id as string;
-    const { payment_method, items, client_ref, mobile_money_flow, payment_reference, agent_margin_amount } =
-      req.body;
+    const { payment_method, items, client_ref, payment_reference } = req.body;
 
     if (!payment_method || !Array.isArray(items) || items.length === 0) {
       throw new AppError('Campos obrigatórios em falta: payment_method, items[]', 422);
     }
-
-    const agentMarginAmount =
-      typeof agent_margin_amount === 'number'
-        ? agent_margin_amount
-        : typeof agent_margin_amount === 'string' && agent_margin_amount.trim() !== ''
-          ? Number(agent_margin_amount)
-          : undefined;
 
     const sale = await createSale({
       tenantId,
@@ -32,13 +24,8 @@ export async function registerSale(req: Request, res: Response, next: NextFuncti
         quantity: Number(item.quantity),
       })),
       clientRef: typeof client_ref === 'string' && client_ref.trim() ? client_ref.trim() : undefined,
-      mobileMoneyFlow:
-        typeof mobile_money_flow === 'string' && mobile_money_flow.trim()
-          ? (mobile_money_flow as MobileMoneyFlow)
-          : undefined,
       paymentReference:
         typeof payment_reference === 'string' && payment_reference.trim() ? payment_reference.trim() : undefined,
-      agentMarginAmount,
     });
 
     sendSuccess(res, sale, 'Venda registada com sucesso', 201);

@@ -66,6 +66,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       category,
       unit,
       expiry_date,
+      tracks_batches,
     } = req.body;
 
     const product = await productService.createProduct({
@@ -80,6 +81,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       category,
       unit,
       expiry_date,
+      tracks_batches,
     });
 
     sendSuccess(res, product, 'Produto criado com sucesso', 201);
@@ -103,6 +105,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       unit,
       expiry_date,
       is_active,
+      tracks_batches,
     } = req.body;
 
     const product = await productService.updateProduct({
@@ -119,6 +122,7 @@ export async function updateProduct(req: Request, res: Response, next: NextFunct
       unit,
       expiry_date,
       is_active,
+      tracks_batches,
     });
 
     sendSuccess(res, product, 'Produto atualizado com sucesso');

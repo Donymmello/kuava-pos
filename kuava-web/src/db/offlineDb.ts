@@ -1,5 +1,5 @@
 import Dexie, { Table } from 'dexie';
-import { MobileMoneyFlow, PaymentMethod, Product, Tenant } from '../types';
+import { PaymentMethod, Product, Tenant } from '../types';
 
 export interface PendingSaleItem {
   product_id: string;
@@ -18,10 +18,8 @@ export interface PendingSale {
   createdAt: string;
   status: PendingSaleStatus;
   errorMessage?: string;
-  /** Só preenchidos quando paymentMethod é MPESA/EMOLA, ver types/index.ts. */
-  mobileMoneyFlow?: MobileMoneyFlow;
+  /** Só preenchida quando paymentMethod é TRANSFER, ver types/index.ts. */
   paymentReference?: string;
-  agentMarginAmount?: number;
 }
 
 interface CachedTenant extends Tenant {

@@ -7,7 +7,7 @@ import {
   Op,
 } from 'sequelize';
 import { sequelize } from '../config/database';
-import { MobileMoneyFlow, PaymentMethod, SaleStatus } from '../types/enums';
+import { PaymentMethod, SaleStatus } from '../types/enums';
 
 export class Sale extends Model<InferAttributes<Sale>, InferCreationAttributes<Sale>> {
   declare id: CreationOptional<string>;
@@ -23,12 +23,8 @@ export class Sale extends Model<InferAttributes<Sale>, InferCreationAttributes<S
    * venda em segurança sem duplicar, ver services/saleService.ts.
    */
   declare client_ref: string | null;
-  /** Só preenchido quando payment_method é MPESA/EMOLA, ver enums.ts. */
-  declare mobile_money_flow: MobileMoneyFlow | null;
-  /** Referência de confirmação da SMS, quando mobile_money_flow é TRANSFER. */
+  /** Referência livre e opcional, preenchida pelo caixa quando payment_method é TRANSFER. */
   declare payment_reference: string | null;
-  /** Margem/comissão retida pela loja, quando mobile_money_flow é AGENT. */
-  declare agent_margin_amount: number | null;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
 }
@@ -77,21 +73,9 @@ Sale.init(
       type: DataTypes.STRING(64),
       allowNull: true,
     },
-    mobile_money_flow: {
-      type: DataTypes.ENUM(...Object.values(MobileMoneyFlow)),
-      allowNull: true,
-    },
     payment_reference: {
       type: DataTypes.STRING(64),
       allowNull: true,
-    },
-    agent_margin_amount: {
-      type: DataTypes.DECIMAL(10, 2),
-      allowNull: true,
-      get(this: Sale) {
-        const raw = this.getDataValue('agent_margin_amount');
-        return raw === null || raw === undefined ? raw : parseFloat(raw as unknown as string);
-      },
     },
     created_at: DataTypes.DATE,
     updated_at: DataTypes.DATE,

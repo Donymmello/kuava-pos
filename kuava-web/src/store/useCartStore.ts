@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { fetchProductByBarcode } from '../services/productService';
-import { CartItem, isFractionalUnit, isMobileMoneyMethod, MobileMoneyFlow, PaymentMethod, Product } from '../types';
+import { CartItem, isFractionalUnit, PaymentMethod, Product } from '../types';
 
 /** Arredonda a 3 casas decimais (kg/g/l/m) ou ao inteiro mais próximo (UN), conforme a unidade do item. */
 function roundQuantityForUnit(item: Pick<CartItem, 'unit'>, quantity: number): number {
@@ -17,12 +17,8 @@ export interface CartTotals {
 interface CartState {
   items: CartItem[];
   paymentMethod: PaymentMethod;
-  /** Só relevante quando paymentMethod é MPESA/EMOLA, transferência vs agente. */
-  mobileMoneyFlow: MobileMoneyFlow | null;
-  /** Referência da SMS de confirmação, preenchida quando mobileMoneyFlow é TRANSFER. */
+  /** Referência livre e opcional, preenchida quando paymentMethod é TRANSFER. */
   paymentReference: string;
-  /** Margem/comissão cobrada, como texto (validado/convertido ao finalizar), preenchida quando mobileMoneyFlow é AGENT. */
-  agentMarginAmount: string;
   lastError: string | null;
   isAddingByBarcode: boolean;
 
@@ -33,9 +29,7 @@ interface CartState {
   setQuantity: (productId: string, quantity: number) => void;
   removeItem: (productId: string) => void;
   setPaymentMethod: (method: PaymentMethod) => void;
-  setMobileMoneyFlow: (flow: MobileMoneyFlow | null) => void;
   setPaymentReference: (value: string) => void;
-  setAgentMarginAmount: (value: string) => void;
   clearCart: () => void;
   clearError: () => void;
   getTotals: () => CartTotals;
@@ -93,9 +87,7 @@ function productToCartItem(product: Product, quantity: number): CartItem {
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
   paymentMethod: PaymentMethod.CASH,
-  mobileMoneyFlow: null,
   paymentReference: '',
-  agentMarginAmount: '',
   lastError: null,
   isAddingByBarcode: false,
 
@@ -180,21 +172,14 @@ export const useCartStore = create<CartState>((set, get) => ({
   setPaymentMethod: (method) =>
     set((state) => ({
       paymentMethod: method,
-      // Ao trocar para um método que não é M-Pesa/e-Mola, os detalhes deixam
-      // de fazer sentido. Ao trocar entre M-Pesa e e-Mola mantém-se o fluxo
-      // já escolhido (transferência/agente costuma repetir-se por cliente).
-      mobileMoneyFlow: isMobileMoneyMethod(method) ? state.mobileMoneyFlow : null,
-      paymentReference: isMobileMoneyMethod(method) ? state.paymentReference : '',
-      agentMarginAmount: isMobileMoneyMethod(method) ? state.agentMarginAmount : '',
+      // Ao trocar para um método que não é TRANSFER, a referência deixa de
+      // fazer sentido.
+      paymentReference: method === PaymentMethod.TRANSFER ? state.paymentReference : '',
     })),
-
-  setMobileMoneyFlow: (flow) => set({ mobileMoneyFlow: flow, paymentReference: '', agentMarginAmount: '' }),
 
   setPaymentReference: (value) => set({ paymentReference: value }),
 
-  setAgentMarginAmount: (value) => set({ agentMarginAmount: value }),
-
-  clearCart: () => set({ items: [], lastError: null, paymentReference: '', agentMarginAmount: '' }),
+  clearCart: () => set({ items: [], lastError: null, paymentReference: '' }),
 
   clearError: () => set({ lastError: null }),
 

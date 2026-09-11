@@ -114,7 +114,7 @@ describe('superadmin — gestão de tenants', () => {
     const list = await api.get('/api/superadmin/tenants').set('Authorization', `Bearer ${superadmin.token}`);
     const found = list.body.data.find((t: { id: string }) => t.id === tenant.tenantId);
 
-    expect(found.subscription_active).toBe(false);
+    expect(found.subscription_expires_at).toBeNull();
     expect(found.trial_ends_at).not.toBeNull();
     const trialEnd = new Date(found.trial_ends_at).getTime();
     const sixDaysFromNow = Date.now() + 6 * 24 * 60 * 60 * 1000;
@@ -123,11 +123,9 @@ describe('superadmin — gestão de tenants', () => {
     expect(trialEnd).toBeLessThan(eightDaysFromNow);
   });
 
-  it('bloqueia o login quando o trial termina sem um plano pago ativo, e ativar o plano restaura o acesso', async () => {
-    const superadmin = await createSuperadminAndLogin();
+  it('o trial a terminar sem subscrição paga já não bloqueia o login (ver tests/subscription.test.ts para o bloqueio real nas rotas de negócio)', async () => {
     const tenant = await registerTestTenant();
 
-    // Ainda dentro do trial — login continua a funcionar normalmente.
     const stillTrialing = await api
       .post('/api/auth/login')
       .send({ email: tenant.adminEmail, password: tenant.adminPassword });
@@ -138,21 +136,7 @@ describe('superadmin — gestão de tenants', () => {
     const afterExpiry = await api
       .post('/api/auth/login')
       .send({ email: tenant.adminEmail, password: tenant.adminPassword });
-    expect(afterExpiry.status).toBe(401);
-    expect(afterExpiry.body.message).toMatch(/período de teste/i);
-
-    const activate = await api
-      .put(`/api/superadmin/tenants/${tenant.tenantId}`)
-      .set('Authorization', `Bearer ${superadmin.token}`)
-      .send({ subscription_active: true });
-    expect(activate.status).toBe(200);
-    expect(activate.body.data.subscription_active).toBe(true);
-
-    // Plano ativo restaura o login mesmo com o trial já expirado.
-    const afterActivation = await api
-      .post('/api/auth/login')
-      .send({ email: tenant.adminEmail, password: tenant.adminPassword });
-    expect(afterActivation.status).toBe(200);
+    expect(afterExpiry.status).toBe(200);
   });
 
   it('rejeita criar ou promover um utilizador a SUPERADMIN pelas rotas normais de gestão de utilizadores', async () => {

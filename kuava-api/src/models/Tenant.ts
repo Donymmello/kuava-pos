@@ -18,10 +18,18 @@ export class Tenant extends Model<InferAttributes<Tenant>, InferCreationAttribut
   declare is_active: CreationOptional<boolean>;
   // Plano/trial (2026-08-24): trial_ends_at fica null para tenants criados
   // antes desta funcionalidade, só um registo novo (authService.registerTenant)
-  // define os dois. subscription_active=true por omissão (ver a migração)
-  // é o que mantém os tenants antigos a funcionar sem qualquer mudança.
+  // define os dois.
   declare trial_ends_at: Date | null;
-  declare subscription_active: CreationOptional<boolean>;
+  /**
+   * Substitui o antigo `subscription_active` booleano (2026-09-09): null
+   * significa sem subscrição paga ativa (só o trial conta, se ainda válido),
+   * uma data no futuro significa pago até lá. Estende-se a cada confirmação
+   * de um pedido de assinatura (ver subscriptionService.confirmSubscriptionRequest),
+   * nunca é editada à mão. Tenants que já estavam com o plano ativo antes
+   * desta mudança ficam com uma data bem no futuro (ver a migração), para
+   * continuarem a funcionar sem qualquer alteração.
+   */
+  declare subscription_expires_at: Date | null;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
 }
@@ -78,10 +86,9 @@ Tenant.init(
       type: DataTypes.DATE,
       allowNull: true,
     },
-    subscription_active: {
-      type: DataTypes.BOOLEAN,
-      allowNull: false,
-      defaultValue: true,
+    subscription_expires_at: {
+      type: DataTypes.DATE,
+      allowNull: true,
     },
     created_at: DataTypes.DATE,
     updated_at: DataTypes.DATE,

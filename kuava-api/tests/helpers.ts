@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { Product, Tenant, User } from '../src/models';
+import { Product, ProductLot, Tenant, User } from '../src/models';
 import { ProductUnit, UserRole } from '../src/types/enums';
 
 export const app = createApp();
@@ -106,6 +106,11 @@ export async function expireTenantTrial(tenantId: string): Promise<void> {
   );
 }
 
+/** Define subscription_expires_at diretamente no modelo, para testar renovações a partir de um estado conhecido. */
+export async function setTenantSubscriptionExpiry(tenantId: string, expiresAt: Date | null): Promise<void> {
+  await Tenant.update({ subscription_expires_at: expiresAt }, { where: { id: tenantId } });
+}
+
 /** Cria um produto diretamente no modelo — mais rápido que passar pelo endpoint quando o teste não é sobre o catálogo em si. */
 export async function createTestProduct(
   tenantId: string,
@@ -116,6 +121,7 @@ export async function createTestProduct(
     tax_rate: number;
     unit: ProductUnit;
     expiry_date: string | null;
+    tracks_batches: boolean;
   }> = {},
 ): Promise<Product> {
   return Product.create({
@@ -129,6 +135,21 @@ export async function createTestProduct(
     tax_rate: overrides.tax_rate ?? 0.16,
     category: null,
     unit: overrides.unit ?? ProductUnit.UN,
+    expiry_date: overrides.expiry_date ?? null,
+    tracks_batches: overrides.tracks_batches ?? false,
+  });
+}
+
+/** Cria um lote diretamente no modelo, para testes de controle por lotes que não são sobre o endpoint de criação em si. */
+export async function createTestLot(
+  tenantId: string,
+  productId: string,
+  overrides: Partial<{ quantity: number; expiry_date: string | null }> = {},
+): Promise<ProductLot> {
+  return ProductLot.create({
+    tenant_id: tenantId,
+    product_id: productId,
+    quantity: overrides.quantity ?? 10,
     expiry_date: overrides.expiry_date ?? null,
   });
 }
