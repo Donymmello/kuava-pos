@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   api,
   createSuperadminAndLogin,
@@ -7,8 +7,26 @@ import {
   registerTestTenant,
   setTenantSubscriptionExpiry,
 } from './helpers';
+import { sendEmail } from '../src/services/emailService';
+
+// O SMTP nunca é configurado em teste, mas espiamos sendEmail para verificar
+// a quem o aviso seria enviado e, sobretudo, que uma falha de envio não
+// estraga uma confirmação de pagamento já gravada. vi.mock é içado acima
+// dos imports, por isso o sendEmail importado acima já é o duplo.
+vi.mock('../src/services/emailService', () => ({
+  isEmailEnabled: true,
+  sendEmail: vi.fn(async () => true),
+  renderEmailLayout: (_title: string, body: string) => body,
+}));
+
+const sendEmailMock = vi.mocked(sendEmail);
 
 describe('assinatura — pedido de plano e confirmação manual', () => {
+  beforeEach(() => {
+    sendEmailMock.mockClear();
+    sendEmailMock.mockResolvedValue(true);
+  });
+
   it('um ADMIN cria um pedido de plano, com referência única e o valor do plano', async () => {
     const tenant = await registerTestTenant();
 
@@ -155,5 +173,66 @@ describe('assinatura — pedido de plano e confirmação manual', () => {
       .set('Authorization', `Bearer ${tenant.token}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it('avisa o cliente por email quando o superadmin confirma o pagamento', async () => {
+    const superadmin = await createSuperadminAndLogin();
+    const tenant = await registerTestTenant();
+
+    const request = await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'ANNUAL' });
+
+    await api
+      .post(`/api/superadmin/subscription-requests/${request.body.data.id}/confirm`)
+      .set('Authorization', `Bearer ${superadmin.token}`);
+
+    expect(sendEmailMock).toHaveBeenCalledTimes(1);
+    const message = sendEmailMock.mock.calls[0][0];
+    // O tenant de teste não tem email próprio, por isso cai no ADMIN.
+    expect(message.to).toBe(tenant.adminEmail);
+    expect(message.text).toContain(request.body.data.reference);
+  });
+
+  it('não avisa ninguém ao cancelar um pedido, só ao confirmar', async () => {
+    const superadmin = await createSuperadminAndLogin();
+    const tenant = await registerTestTenant();
+
+    const request = await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'MONTHLY' });
+
+    const cancel = await api
+      .post(`/api/superadmin/subscription-requests/${request.body.data.id}/cancel`)
+      .set('Authorization', `Bearer ${superadmin.token}`);
+
+    expect(cancel.status).toBe(200);
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it('uma falha no envio do email não desfaz nem falha a confirmação do pagamento', async () => {
+    const superadmin = await createSuperadminAndLogin();
+    const tenant = await registerTestTenant();
+    await expireTenantTrial(tenant.tenantId);
+
+    sendEmailMock.mockRejectedValueOnce(new Error('servidor SMTP em baixo'));
+
+    const request = await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'MONTHLY' });
+
+    const confirm = await api
+      .post(`/api/superadmin/subscription-requests/${request.body.data.id}/confirm`)
+      .set('Authorization', `Bearer ${superadmin.token}`);
+
+    expect(confirm.status).toBe(200);
+    expect(confirm.body.data.status).toBe('CONFIRMED');
+
+    // E o acesso ficou mesmo restaurado, o email é acessório.
+    const restored = await api.get('/api/products').set('Authorization', `Bearer ${tenant.token}`);
+    expect(restored.status).toBe(200);
   });
 });

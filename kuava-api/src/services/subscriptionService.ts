@@ -1,8 +1,16 @@
 import crypto from 'crypto';
 import { env } from '../config/env';
-import { sequelize, SubscriptionRequest, Tenant } from '../models';
-import { SubscriptionPlan, SUBSCRIPTION_PLAN_DURATION_DAYS, SubscriptionRequestStatus } from '../types/enums';
+import { logger } from '../config/logger';
+import { sequelize, SubscriptionRequest, Tenant, User } from '../models';
+import {
+  SubscriptionPlan,
+  SUBSCRIPTION_PLAN_DURATION_DAYS,
+  SubscriptionRequestStatus,
+  UserRole,
+} from '../types/enums';
 import { AppError } from '../utils/AppError';
+import { formatMzn } from '../utils/currency';
+import { renderEmailLayout, sendEmail } from './emailService';
 
 // Sem os caracteres ambíguos (0/O, 1/l/I), a referência vai ser copiada e
 // colada (ou lida à mão) para a descrição de uma transferência bancária,
@@ -137,17 +145,102 @@ export async function listPendingSubscriptionRequests(): Promise<SubscriptionReq
   });
 }
 
+const PLAN_LABELS: Record<SubscriptionPlan, string> = {
+  [SubscriptionPlan.MONTHLY]: 'Mensal',
+  [SubscriptionPlan.ANNUAL]: 'Anual',
+};
+
+function formatDatePt(date: Date): string {
+  return new Intl.DateTimeFormat('pt-MZ', { day: '2-digit', month: 'long', year: 'numeric' }).format(date);
+}
+
+/**
+ * Para onde vai o aviso de confirmação: o email do estabelecimento se
+ * estiver preenchido (é o contacto de faturação que o próprio cliente
+ * escolheu), senão o do ADMIN, que é obrigatório e único, logo existe
+ * sempre. Devolve null só no caso improvável de o tenant já não ter ADMIN.
+ */
+async function resolveBillingRecipient(tenant: Tenant): Promise<string | null> {
+  if (tenant.email) {
+    return tenant.email;
+  }
+  const admin = await User.findOne({
+    where: { tenant_id: tenant.id, role: UserRole.ADMIN, is_active: true },
+    order: [['created_at', 'ASC']],
+  });
+  return admin?.email ?? null;
+}
+
+/**
+ * Avisa o cliente de que o pagamento foi confirmado. Nunca lança: é
+ * chamada depois de a transação de confirmação já ter sido gravada, e um
+ * servidor de correio em baixo não pode desfazer um pagamento confirmado
+ * nem fazer o superadmin ver um erro.
+ */
+async function notifySubscriptionConfirmed(tenant: Tenant, request: SubscriptionRequest): Promise<void> {
+  try {
+    const to = await resolveBillingRecipient(tenant);
+    if (!to) {
+      logger.warn({ tenantId: tenant.id }, 'Sem destinatário para o aviso de confirmação de assinatura');
+      return;
+    }
+
+    const expiresAt = formatDatePt(new Date(tenant.subscription_expires_at as Date));
+    const plan = PLAN_LABELS[request.plan];
+    const amount = formatMzn(Number(request.amount));
+
+    await sendEmail({
+      to,
+      subject: `Pagamento confirmado — Kuava POS ativo até ${expiresAt}`,
+      text: [
+        `Olá, ${tenant.name}.`,
+        '',
+        `Recebemos o pagamento da referência ${request.reference} e a assinatura já está ativa.`,
+        '',
+        `Plano: ${plan}`,
+        `Valor: ${amount}`,
+        `Referência: ${request.reference}`,
+        `Acesso ativo até: ${expiresAt}`,
+        '',
+        `Entra em ${env.appUrl} e continua a trabalhar, não é preciso fazer mais nada.`,
+      ].join('\n'),
+      html: renderEmailLayout(
+        'Pagamento confirmado',
+        `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${tenant.name}</strong>.</p>
+         <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
+           Recebemos o pagamento da referência <strong>${request.reference}</strong> e a assinatura já está ativa.
+         </p>
+         <table role="presentation" style="width:100%;font-size:14px;border-collapse:collapse;margin-bottom:24px;">
+           <tr><td style="padding:8px 0;color:#666;">Plano</td><td style="padding:8px 0;text-align:right;">${plan}</td></tr>
+           <tr><td style="padding:8px 0;color:#666;">Valor</td><td style="padding:8px 0;text-align:right;">${amount}</td></tr>
+           <tr><td style="padding:8px 0;color:#666;">Referência</td><td style="padding:8px 0;text-align:right;font-family:monospace;">${request.reference}</td></tr>
+           <tr><td style="padding:8px 0;color:#666;border-top:1px solid #eee;">Acesso ativo até</td>
+               <td style="padding:8px 0;text-align:right;font-weight:bold;border-top:1px solid #eee;">${expiresAt}</td></tr>
+         </table>
+         <a href="${env.appUrl}" style="display:inline-block;background:#0f6b4f;color:#fff;text-decoration:none;padding:12px 24px;border-radius:6px;font-size:15px;">
+           Abrir o Kuava POS
+         </a>`,
+      ),
+    });
+  } catch (error) {
+    logger.error({ err: error, tenantId: tenant.id }, 'Falha ao preparar o aviso de confirmação de assinatura');
+  }
+}
+
 /**
  * O superadmin confirma depois de ver o pagamento chegar (referência na
  * descrição da transferência). Estende subscription_expires_at a partir de
  * onde a subscrição atual já estava (uma renovação antecipada não perde os
  * dias já pagos), ou a partir de agora se já tinha expirado ou nunca
  * existiu.
+ *
+ * O cliente é avisado por email depois de a transação fechar, num passo
+ * que não pode falhar a confirmação (ver notifySubscriptionConfirmed).
  */
 export async function confirmSubscriptionRequest(
   requestId: string,
 ): Promise<{ tenant: Tenant; request: SubscriptionRequest }> {
-  return sequelize.transaction(async (transaction) => {
+  const result = await sequelize.transaction(async (transaction) => {
     const request = await SubscriptionRequest.findByPk(requestId, {
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -181,6 +274,9 @@ export async function confirmSubscriptionRequest(
 
     return { tenant, request };
   });
+
+  await notifySubscriptionConfirmed(result.tenant, result.request);
+  return result;
 }
 
 /** O superadmin usa isto para descartar um pedido enganado/obsoleto sem confirmar pagamento nenhum. */

@@ -56,15 +56,16 @@ const FEATURES = [
 // nicho (farmácia, ferragem, mercearia, bottle store pagam o mesmo).
 // Preço de lançamento (set/2026), calibrado com 3 pontos de referência reais
 // em MZN, não convertidos a partir de preços europeus: addon de POS da PHC
-// Moçambique (~2.250 MT/mês equivalente), Cegid Vendus Flex, o plano dele
-// mais parecido com a Kuava, com POS de retalho (810-1.272 MT/mês ao câmbio
-// do BCI), e a Zameda, SaaS de gestão de farmácia no Quénia, no seu plano de
-// entrada de uma só loja (~1.245 MT/mês ao câmbio do dia). As três fontes
-// convergem para grosso modo 800-2.250 MT/mês; 1.199 MT/mês fica dentro
-// desse intervalo, abaixo da farmácia (nicho mais regulado e mais dependente
-// de software) e dentro do Vendus Flex.
-const MONTHLY_PRICE_MZN = 1199;
-const ANNUAL_PRICE_MZN = 11990; // paga 10 meses, ganha 12 (mesmo padrão usado pela Zameda)
+// Moçambique (a partir de ~2.813 MT/mês, além da subscrição base do PHC GO),
+// Cegid Vendus, o concorrente mais parecido em posicionamento (planos Base,
+// Flex e Pro, de ~663 a ~1.621 MT/mês ao câmbio de setembro de 2026), e o
+// Loyverse (POS gratuito com extras pagos em dólares) e a NetwarePos
+// (licença única moçambicana, sem mensalidade, sem preço público). Revisto
+// em 2026-09-15: a 1.199 MT/mês o Kuava estava abaixo até do Vendus Flex, o
+// plano mais comparável, com margem a menos do que o mercado suporta; subiu
+// para 1.299 MT/mês, ainda claramente abaixo do Vendus Pro (~1.621 MT/mês).
+const MONTHLY_PRICE_MZN = 1299;
+const ANNUAL_PRICE_MZN = 12990; // paga 10 meses, ganha 12 (mesma proporção de antes)
 
 const INCLUDED_IN_PLAN = [
   'Vendas por código de barras ou pesquisa, com IVA automático',

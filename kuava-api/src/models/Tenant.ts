@@ -30,6 +30,12 @@ export class Tenant extends Model<InferAttributes<Tenant>, InferCreationAttribut
    * continuarem a funcionar sem qualquer alteração.
    */
   declare subscription_expires_at: Date | null;
+  /**
+   * Dias que faltavam no último aviso de fim de trial enviado (7, 3 ou 1),
+   * ou null se ainda não foi enviado nenhum. Só existe para o agendador não
+   * repetir o mesmo aviso a cada passagem, ver services/trialReminderService.ts.
+   */
+  declare trial_reminder_days_sent: CreationOptional<number | null>;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
 }
@@ -88,6 +94,10 @@ Tenant.init(
     },
     subscription_expires_at: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    trial_reminder_days_sent: {
+      type: DataTypes.INTEGER,
       allowNull: true,
     },
     created_at: DataTypes.DATE,
