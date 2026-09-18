@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import nodemailer, { Transporter } from 'nodemailer';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
@@ -11,6 +12,15 @@ import { logger } from '../config/logger';
  */
 
 export const isEmailEnabled = Boolean(env.mail.host);
+
+/**
+ * Domínio do remetente, extraído de SMTP_FROM (que tanto pode ser
+ * "nome@dominio" como "Nome <nome@dominio>"). Serve para o Message-ID: por
+ * omissão o nodemailer usa o hostname da máquina, que dentro de um
+ * contentor é um hash tipo "23161ee2daf9" — um Message-ID cujo domínio não
+ * existe é sinal clássico de spam para o Gmail. Aqui fica o domínio real.
+ */
+const FROM_DOMAIN = (env.mail.from.match(/@([^\s>]+)/)?.[1] ?? 'localhost').trim();
 
 let transporter: Transporter | null = null;
 
@@ -53,6 +63,11 @@ export async function sendEmail(message: EmailMessage): Promise<boolean> {
       subject: message.subject,
       text: message.text,
       html: message.html,
+      messageId: `<${crypto.randomUUID()}@${FROM_DOMAIN}>`,
+      // O Return-Path passa a ser a caixa que se autenticou, e não o alias
+      // do cabeçalho From. É sobre este endereço que o SPF é verificado,
+      // por isso alinhá-lo com a conta SMTP real evita um SPF a falhar.
+      envelope: { from: env.mail.user || env.mail.from, to: message.to },
     });
     logger.info({ to: message.to, subject: message.subject }, 'Email enviado');
     return true;
