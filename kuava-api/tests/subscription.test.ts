@@ -8,15 +8,14 @@ import {
   setTenantSubscriptionExpiry,
 } from './helpers';
 import { sendEmail } from '../src/services/emailService';
+import { SubscriptionRequest, User } from '../src/models';
 
-// O SMTP nunca é configurado em teste, mas espiamos sendEmail para verificar
-// a quem o aviso seria enviado e, sobretudo, que uma falha de envio não
-// estraga uma confirmação de pagamento já gravada. vi.mock é içado acima
-// dos imports, por isso o sendEmail importado acima já é o duplo.
-vi.mock('../src/services/emailService', () => ({
+// Só o envio é substituído: escapeHtml e renderEmailLayout continuam a ser
+// os verdadeiros, para os testes exercerem o HTML que sai mesmo.
+vi.mock('../src/services/emailService', async (importActual) => ({
+  ...(await importActual<typeof import('../src/services/emailService')>()),
   isEmailEnabled: true,
   sendEmail: vi.fn(async () => true),
-  renderEmailLayout: (_title: string, body: string) => body,
 }));
 
 const sendEmailMock = vi.mocked(sendEmail);
@@ -234,5 +233,47 @@ describe('assinatura — pedido de plano e confirmação manual', () => {
     // E o acesso ficou mesmo restaurado, o email é acessório.
     const restored = await api.get('/api/products').set('Authorization', `Bearer ${tenant.token}`);
     expect(restored.status).toBe(200);
+  });
+
+  it('grava qual o superadmin que confirmou o pagamento', async () => {
+    const superadmin = await createSuperadminAndLogin();
+    const tenant = await registerTestTenant();
+
+    const request = await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'MONTHLY' });
+
+    // Antes de confirmar não há autor nenhum.
+    const pendente = await SubscriptionRequest.findByPk(request.body.data.id);
+    expect(pendente?.confirmed_by).toBeNull();
+
+    await api
+      .post(`/api/superadmin/subscription-requests/${request.body.data.id}/confirm`)
+      .set('Authorization', `Bearer ${superadmin.token}`);
+
+    const autor = await User.findOne({ where: { email: superadmin.email } });
+    const confirmado = await SubscriptionRequest.findByPk(request.body.data.id);
+    expect(confirmado?.status).toBe('CONFIRMED');
+    expect(confirmado?.confirmed_by).toBe(autor?.id);
+    expect(confirmado?.confirmed_at).not.toBeNull();
+  });
+
+  it('não deixa autor gravado num pedido apenas cancelado', async () => {
+    const superadmin = await createSuperadminAndLogin();
+    const tenant = await registerTestTenant();
+
+    const request = await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'MONTHLY' });
+
+    await api
+      .post(`/api/superadmin/subscription-requests/${request.body.data.id}/cancel`)
+      .set('Authorization', `Bearer ${superadmin.token}`);
+
+    const cancelado = await SubscriptionRequest.findByPk(request.body.data.id);
+    expect(cancelado?.status).toBe('CANCELLED');
+    expect(cancelado?.confirmed_by).toBeNull();
   });
 });

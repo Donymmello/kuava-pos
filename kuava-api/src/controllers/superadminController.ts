@@ -103,7 +103,13 @@ export async function confirmSubscriptionRequestHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const { request } = await confirmSubscriptionRequest(req.params.id);
+    // authMiddleware garante req.user nesta rota (ver superadminRoutes.ts),
+    // mas o tipo é opcional, por isso falha explicitamente em vez de gravar
+    // uma confirmação sem autor.
+    if (!req.user) {
+      throw new AppError('Autenticação obrigatória', 401);
+    }
+    const { request } = await confirmSubscriptionRequest(req.params.id, req.user.id);
     sendSuccess(res, serializeSubscriptionRequest(request), 'Pedido confirmado, assinatura estendida com sucesso');
   } catch (error) {
     next(error);

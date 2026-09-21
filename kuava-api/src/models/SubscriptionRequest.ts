@@ -28,6 +28,13 @@ export class SubscriptionRequest extends Model<
   declare reference: string;
   declare status: CreationOptional<SubscriptionRequestStatus>;
   declare confirmed_at: Date | null;
+  /**
+   * O SUPERADMIN que confirmou o pagamento. Null enquanto o pedido está
+   * PENDING, e também nos pedidos confirmados antes desta coluna existir.
+   * Confirmar é o único ato da app que move dinheiro, por isso fica
+   * registo de quem o fez (ver subscriptionService.confirmSubscriptionRequest).
+   */
+  declare confirmed_by: CreationOptional<string | null>;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
 }
@@ -67,6 +74,10 @@ SubscriptionRequest.init(
     },
     confirmed_at: {
       type: DataTypes.DATE,
+      allowNull: true,
+    },
+    confirmed_by: {
+      type: DataTypes.UUID,
       allowNull: true,
     },
     created_at: DataTypes.DATE,
