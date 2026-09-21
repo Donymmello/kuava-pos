@@ -4,11 +4,12 @@ import { Tenant } from '../src/models';
 import { sendEmail } from '../src/services/emailService';
 import { daysLeftUntil, milestoneFor, sendDueTrialReminders } from '../src/services/trialReminderService';
 
-// vi.mock é içado acima dos imports, por isso o sendEmail acima já é o duplo.
-vi.mock('../src/services/emailService', () => ({
+// Só o envio é substituído: escapeHtml e renderEmailLayout continuam a ser
+// os verdadeiros, para os testes exercerem o HTML que sai mesmo.
+vi.mock('../src/services/emailService', async (importActual) => ({
+  ...(await importActual<typeof import('../src/services/emailService')>()),
   isEmailEnabled: true,
   sendEmail: vi.fn(async () => true),
-  renderEmailLayout: (_title: string, body: string) => body,
 }));
 
 const sendEmailMock = vi.mocked(sendEmail);

@@ -4,7 +4,7 @@ import { logger } from '../config/logger';
 import { Tenant, User } from '../models';
 import { UserRole } from '../types/enums';
 import { formatMzn } from '../utils/currency';
-import { renderEmailLayout, sendEmail } from './emailService';
+import { escapeHtml, renderEmailLayout, sendEmail } from './emailService';
 
 /**
  * Aviso automático de fim do período de teste. Não há nada no pedido HTTP
@@ -91,7 +91,7 @@ function buildExpiredMessage(tenant: Tenant, to: string, endsAt: Date) {
     ].join('\n'),
     html: renderEmailLayout(
       'O teu período de teste terminou',
-      `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${tenant.name}</strong>.</p>
+      `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${escapeHtml(tenant.name)}</strong>.</p>
        <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
          O período de teste gratuito terminou a <strong>${dataFim}</strong> e o acesso está suspenso:
          as vendas, o stock e os relatórios ficam bloqueados até haver um plano ativo.
@@ -134,7 +134,7 @@ function buildEndingMessage(tenant: Tenant, to: string, daysLeft: number, endsAt
     ].join('\n'),
     html: renderEmailLayout(
       'O teu período de teste está a terminar',
-      `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${tenant.name}</strong>.</p>
+      `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${escapeHtml(tenant.name)}</strong>.</p>
        <p style="margin:0 0 16px;font-size:15px;line-height:1.6;">
          O período de teste gratuito termina <strong>${quando}</strong>, a ${dataFim}. Quando terminar,
          as vendas, o stock e os relatórios ficam bloqueados até haver um plano ativo.

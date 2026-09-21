@@ -41,6 +41,25 @@ function getTransporter(): Transporter {
   return transporter;
 }
 
+/**
+ * Escapa texto vindo do utilizador antes de entrar no HTML de um email.
+ *
+ * Não é cosmético: o nome do estabelecimento é editável pelo próprio
+ * cliente (tenantService.updateTenant) e o destinatário também
+ * (tenant.email). Sem isto, um cliente podia pôr HTML no nome, apontar o
+ * email para uma vítima, e usar o Kuava para lhe entregar uma mensagem
+ * com conteúdo à escolha dele — assinada por DKIM e com SPF válido do
+ * nosso domínio. É um vetor de phishing a montar na nossa reputação.
+ */
+export function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export interface EmailMessage {
   to: string;
   subject: string;

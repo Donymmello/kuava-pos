@@ -10,7 +10,7 @@ import {
 } from '../types/enums';
 import { AppError } from '../utils/AppError';
 import { formatMzn } from '../utils/currency';
-import { renderEmailLayout, sendEmail } from './emailService';
+import { escapeHtml, renderEmailLayout, sendEmail } from './emailService';
 
 // Sem os caracteres ambíguos (0/O, 1/l/I), a referência vai ser copiada e
 // colada (ou lida à mão) para a descrição de uma transferência bancária,
@@ -206,7 +206,7 @@ async function notifySubscriptionConfirmed(tenant: Tenant, request: Subscription
       ].join('\n'),
       html: renderEmailLayout(
         'Pagamento confirmado',
-        `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${tenant.name}</strong>.</p>
+        `<p style="margin:0 0 16px;font-size:16px;">Olá, <strong>${escapeHtml(tenant.name)}</strong>.</p>
          <p style="margin:0 0 24px;font-size:15px;line-height:1.6;">
            Recebemos o pagamento da referência <strong>${request.reference}</strong> e a assinatura já está ativa.
          </p>
@@ -236,9 +236,14 @@ async function notifySubscriptionConfirmed(tenant: Tenant, request: Subscription
  *
  * O cliente é avisado por email depois de a transação fechar, num passo
  * que não pode falhar a confirmação (ver notifySubscriptionConfirmed).
+ *
+ * `confirmedBy` é o id do SUPERADMIN que carregou no botão. Fica gravado
+ * na linha e no log: é o único ato da app que move dinheiro, e sem isto
+ * uma confirmação indevida seria indistinguível de uma legítima.
  */
 export async function confirmSubscriptionRequest(
   requestId: string,
+  confirmedBy: string,
 ): Promise<{ tenant: Tenant; request: SubscriptionRequest }> {
   const result = await sequelize.transaction(async (transaction) => {
     const request = await SubscriptionRequest.findByPk(requestId, {
@@ -270,10 +275,24 @@ export async function confirmSubscriptionRequest(
 
     request.status = SubscriptionRequestStatus.CONFIRMED;
     request.confirmed_at = now;
+    request.confirmed_by = confirmedBy;
     await request.save({ transaction });
 
     return { tenant, request };
   });
+
+  // Também no log, para ficar no mesmo sítio onde se investiga tudo o
+  // resto, sem ter de ir à base de dados.
+  logger.info(
+    {
+      requestId: result.request.id,
+      reference: result.request.reference,
+      tenantId: result.tenant.id,
+      amount: result.request.amount,
+      confirmedBy,
+    },
+    'Pagamento de assinatura confirmado',
+  );
 
   await notifySubscriptionConfirmed(result.tenant, result.request);
   return result;
