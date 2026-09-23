@@ -18,7 +18,8 @@
     "seed:superadmin:prod": "node dist/scripts/seedSuperadmin.js",
     "pretest": "sequelize-cli db:create --env test || true && sequelize-cli db:migrate --env test",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "seed:loadtest": "tsx src/scripts/seedLoadTest.ts"
   },
   "engines": {
     "node": ">=18.0.0"
