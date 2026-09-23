@@ -50,3 +50,12 @@ Desktop.ini
 
 # Diversos
 *.pid
+
+# Playwright (testes ponta a ponta do kuava-web)
+kuava-web/test-results/
+kuava-web/playwright-report/
+kuava-web/blob-report/
+kuava-web/.playwright/
+
+# Dados gerados pelo seed do teste de carga (tokens reais, nunca commitar)
+k6/seed.json
