@@ -15,6 +15,9 @@ import { defineConfig, devices } from '@playwright/test';
  */
 export default defineConfig({
   testDir: './e2e',
+  // Cria UM estabelecimento para toda a corrida; sem isto a suite rebenta o
+  // limite de 5 registos por hora da API.
+  globalSetup: './e2e/global-setup.ts',
   // Um POS partilha stock e catálogo: dois testes a vender ao mesmo tempo
   // disputariam as mesmas quantidades. Série, sempre.
   workers: 1,

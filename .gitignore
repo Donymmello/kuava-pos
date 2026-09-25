@@ -59,3 +59,4 @@ kuava-web/.playwright/
 
 # Dados gerados pelo seed do teste de carga (tokens reais, nunca commitar)
 k6/seed.json
+kuava-web/e2e/.tenant.json

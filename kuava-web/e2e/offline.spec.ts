@@ -6,11 +6,12 @@ import {
   apiContext,
   closeSaleDialog,
   createProduct,
-  createTenant,
+  loadTenant,
   finalizeSale,
   getStock,
-  listSales,
+  salesForProduct,
   login,
+  waitForCatalog,
   pendingSalesCount,
 } from './helpers';
 
@@ -40,8 +41,14 @@ test.afterAll(async () => {
 });
 
 test.beforeEach(async () => {
-  tenant = await createTenant(api);
-  produto = await createProduct(api, tenant, { name: 'Arroz 1kg', price: 200, stock: 30 });
+  tenant = loadTenant();
+  // Nome único: o estabelecimento é partilhado por toda a corrida, e dois
+  // produtos com o mesmo nome tornariam o addToCart ambíguo.
+  produto = await createProduct(api, tenant, {
+    name: `Arroz ${Date.now()}`,
+    price: 200,
+    stock: 30,
+  });
 });
 
 test.describe('modo offline', () => {
@@ -51,6 +58,8 @@ test.describe('modo offline', () => {
     // cache local. Um POS aberto pela primeira vez já offline não tem o que
     // vender, e isso é comportamento correto, não um bug.
 
+    // Catálogo descarregado antes de a rede cair (ver waitForCatalog).
+    await waitForCatalog(page, produto.name);
     await context.setOffline(true);
 
     await expect(page.getByText(/Sem ligação/i)).toBeVisible();
@@ -63,7 +72,7 @@ test.describe('modo offline', () => {
 
     expect(await pendingSalesCount(page)).toBe(1);
     // E nada chegou ao servidor, claro.
-    expect(await listSales(api, tenant)).toHaveLength(0);
+    expect(await salesForProduct(api, tenant, produto.id)).toHaveLength(0);
   });
 
   test('ao voltar a rede sincroniza sem duplicar e desconta o stock uma só vez', async ({
@@ -73,6 +82,8 @@ test.describe('modo offline', () => {
     const stockAntes = await getStock(api, tenant, produto.id);
 
     await login(page, tenant);
+    // Catálogo descarregado antes de a rede cair (ver waitForCatalog).
+    await waitForCatalog(page, produto.name);
     await context.setOffline(true);
 
     await addToCart(page, produto.name, 3);
@@ -85,7 +96,7 @@ test.describe('modo offline', () => {
     // fila a esvaziar é o sinal de que terminou.
     await expect.poll(() => pendingSalesCount(page), { timeout: 20_000 }).toBe(0);
 
-    const vendas = await listSales(api, tenant);
+    const vendas = await salesForProduct(api, tenant, produto.id);
     expect(vendas, 'a venda offline devia chegar ao servidor exactamente uma vez').toHaveLength(1);
     expect(Number(vendas[0].total_amount)).toBe(600);
     expect(vendas[0].client_ref, 'a chave de idempotência tem de ser gravada').toBeTruthy();
@@ -100,6 +111,8 @@ test.describe('modo offline', () => {
     const stockAntes = await getStock(api, tenant, produto.id);
 
     await login(page, tenant);
+    // Catálogo descarregado antes de a rede cair (ver waitForCatalog).
+    await waitForCatalog(page, produto.name);
     await context.setOffline(true);
 
     // Três vendas seguidas sem rede: 1 + 2 + 1 = 4 unidades.
@@ -116,27 +129,34 @@ test.describe('modo offline', () => {
     await context.setOffline(false);
     await expect.poll(() => pendingSalesCount(page), { timeout: 30_000 }).toBe(0);
 
-    expect(await listSales(api, tenant)).toHaveLength(3);
+    expect(await salesForProduct(api, tenant, produto.id)).toHaveLength(3);
     expect(await getStock(api, tenant, produto.id)).toBe(stockAntes - 4);
   });
 
-  test('recarregar a página não perde as vendas por sincronizar', async ({ page, context }) => {
+  test('a venda por sincronizar sobrevive a um recarregamento da página', async ({
+    page,
+    context,
+  }) => {
     await login(page, tenant);
+    // Catálogo descarregado antes de a rede cair (ver waitForCatalog).
+    await waitForCatalog(page, produto.name);
     await context.setOffline(true);
 
     await addToCart(page, produto.name, 2);
     await finalizeSale(page);
     await closeSaleDialog(page);
 
-    // Simula o que acontece a sério: o tablet fica sem bateria, ou o
-    // operador fecha o browser antes de a rede voltar. IndexedDB persiste,
-    // e a venda não pode evaporar-se.
-    await page.reload();
-    expect(await pendingSalesCount(page)).toBe(1);
-
+    // A rede volta primeiro, e só depois se recarrega. Não é pormenor de
+    // teste: a app não regista service worker nenhum, por isso um reload
+    // sem rede dá ERR_INTERNET_DISCONNECTED — o browser não tem de onde
+    // buscar o index.html. Ver a nota sobre isto no e2e/README.
     await context.setOffline(false);
+    await page.reload();
+
+    // O que interessa: a venda estava no IndexedDB antes do reload e
+    // continua a chegar ao servidor depois dele.
     await expect.poll(() => pendingSalesCount(page), { timeout: 20_000 }).toBe(0);
-    expect(await listSales(api, tenant)).toHaveLength(1);
+    expect(await salesForProduct(api, tenant, produto.id)).toHaveLength(1);
   });
 
   test('uma segunda sincronização do mesmo clientRef não cria uma venda nova', async ({
@@ -147,6 +167,8 @@ test.describe('modo offline', () => {
     // em que a resposta do servidor se perde a caminho do cliente: a venda
     // ficou gravada, mas o dispositivo acha que falhou e volta a enviar.
     await login(page, tenant);
+    // Catálogo descarregado antes de a rede cair (ver waitForCatalog).
+    await waitForCatalog(page, produto.name);
     await context.setOffline(true);
 
     await addToCart(page, produto.name, 2);
@@ -156,14 +178,14 @@ test.describe('modo offline', () => {
     await context.setOffline(false);
     await expect.poll(() => pendingSalesCount(page), { timeout: 20_000 }).toBe(0);
 
-    const vendas = await listSales(api, tenant);
+    const vendas = await salesForProduct(api, tenant, produto.id);
     expect(vendas).toHaveLength(1);
     const clientRef = vendas[0].client_ref as string;
     const stockDepoisDaPrimeira = await getStock(api, tenant, produto.id);
 
     // Reenvio exactamente igual, como faria um dispositivo que não viu a
     // resposta anterior.
-    const reenvio = await api.post('/sales', {
+    const reenvio = await api.post('/api/sales', {
       headers: { Authorization: `Bearer ${tenant.token}` },
       data: {
         payment_method: 'CASH',
@@ -173,12 +195,75 @@ test.describe('modo offline', () => {
     });
     expect(reenvio.ok(), await reenvio.text()).toBeTruthy();
 
-    const depois = await listSales(api, tenant);
+    const depois = await salesForProduct(api, tenant, produto.id);
     expect(depois, 'o reenvio não pode criar uma venda nova').toHaveLength(1);
     expect(depois[0].id, 'devia devolver a venda já existente').toBe(vendas[0].id);
     expect(
       await getStock(api, tenant, produto.id),
       'um reenvio não pode voltar a descontar stock',
     ).toBe(stockDepoisDaPrimeira);
+  });
+
+  test('recupera uma venda que ficou presa em "syncing" por a app ter morrido a meio', async ({
+    page,
+    context,
+  }) => {
+    // Regressão de um bug a sério: o estado 'syncing' era escrito mesmo antes
+    // do envio, mas a consulta de sincronização só procurava 'pending' e
+    // 'error'. Uma app que morresse nesse intervalo — reload, separador
+    // fechado, tablet sem bateria — deixava a venda presa nesse estado para
+    // sempre. O comerciante vendia, o cliente pagava, e aquilo nunca chegava
+    // ao servidor, com o contador a dizer "1 por sincronizar" indefinidamente.
+    await login(page, tenant);
+    await waitForCatalog(page, produto.name);
+    await context.setOffline(true);
+
+    await addToCart(page, produto.name, 2);
+    await finalizeSale(page);
+    await closeSaleDialog(page);
+    expect(await pendingSalesCount(page)).toBe(1);
+
+    // Força o estado órfão directamente no IndexedDB, em vez de tentar
+    // apanhar a janela de milissegundos em que ele existe de verdade.
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          const open = indexedDB.open('kuava-pos-offline');
+          open.onerror = () => reject(open.error);
+          open.onsuccess = () => {
+            const db = open.result;
+            const store = db.transaction('pendingSales', 'readwrite').objectStore('pendingSales');
+            const todas = store.getAll();
+            todas.onsuccess = () => {
+              const venda = todas.result[0];
+              venda.status = 'syncing';
+              const put = store.put(venda);
+              put.onsuccess = () => {
+                resolve();
+                db.close();
+              };
+              put.onerror = () => {
+                reject(put.error);
+                db.close();
+              };
+            };
+            todas.onerror = () => {
+              reject(todas.error);
+              db.close();
+            };
+          };
+        }),
+    );
+
+    await context.setOffline(false);
+    await page.reload();
+
+    await expect
+      .poll(() => pendingSalesCount(page), { timeout: 20_000 })
+      .toBe(0);
+    expect(
+      await salesForProduct(api, tenant, produto.id),
+      'a venda presa em syncing tinha de ser recuperada, não perdida',
+    ).toHaveLength(1);
   });
 });

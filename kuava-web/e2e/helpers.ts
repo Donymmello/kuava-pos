@@ -1,3 +1,5 @@
+import fs from 'fs';
+import path from 'path';
 import { APIRequestContext, Page, expect, request } from '@playwright/test';
 
 /**
@@ -10,7 +12,12 @@ import { APIRequestContext, Page, expect, request } from '@playwright/test';
  * causa de um bug no ecrã de inventário.
  */
 
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3333/api';
+/**
+ * Sem o /api no fim de propósito: o Playwright resolve um caminho iniciado
+ * por "/" como absoluto contra o baseURL, o que apagaria o prefixo e daria
+ * 404. Os caminhos abaixo trazem o /api explícito.
+ */
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:3333';
 
 export interface TestTenant {
   token: string;
@@ -36,33 +43,17 @@ export async function apiContext(): Promise<APIRequestContext> {
   return request.newContext({ baseURL: API_URL });
 }
 
-/** Regista um estabelecimento novo com ADMIN, directamente pela API. */
-export async function createTenant(api: APIRequestContext): Promise<TestTenant> {
-  const suffix = unique();
-  const adminEmail = `e2e${suffix}@teste.kuava`;
-  const adminPassword = 'senha12345';
-  const tenantName = `Loja E2E ${suffix}`;
-
-  const res = await api.post('/auth/register', {
-    data: {
-      tenantName,
-      // O NUIT é único por estabelecimento; 9 dígitos derivados do sufixo.
-      nuit: suffix.slice(-9).padStart(9, '1'),
-      adminName: 'Admin E2E',
-      adminEmail,
-      adminPassword,
-    },
-  });
-  expect(res.status(), await res.text()).toBe(201);
-
-  const body = await res.json();
-  return {
-    token: body.data.token,
-    tenantId: body.data.user.tenantId,
-    adminEmail,
-    adminPassword,
-    tenantName,
-  };
+/**
+ * O estabelecimento partilhado por toda a corrida, criado uma única vez pelo
+ * global-setup.ts. Ler daqui em vez de registar por teste é o que mantém a
+ * suite abaixo do limite de 5 registos por hora.
+ */
+export function loadTenant(): TestTenant & { user: Record<string, unknown> } {
+  const ficheiro = path.resolve('e2e/.tenant.json');
+  if (!fs.existsSync(ficheiro)) {
+    throw new Error(`${ficheiro} não existe — o globalSetup não correu?`);
+  }
+  return JSON.parse(fs.readFileSync(ficheiro, 'utf-8'));
 }
 
 export async function createProduct(
@@ -74,7 +65,7 @@ export async function createProduct(
   const price = overrides.price ?? 100;
   const stock = overrides.stock ?? 50;
 
-  const res = await api.post('/products', {
+  const res = await api.post('/api/products', {
     headers: { Authorization: `Bearer ${tenant.token}` },
     data: { name, price, stock_quantity: stock, unit: 'UN' },
   });
@@ -90,7 +81,7 @@ export async function getStock(
   tenant: TestTenant,
   productId: string,
 ): Promise<number> {
-  const res = await api.get(`/products/${productId}`, {
+  const res = await api.get(`/api/products/${productId}`, {
     headers: { Authorization: `Bearer ${tenant.token}` },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
@@ -98,37 +89,101 @@ export async function getStock(
   return Number(body.data.stock_quantity);
 }
 
-/** As vendas que o servidor tem para este estabelecimento, mais recentes primeiro. */
-export async function listSales(
+/**
+ * As vendas que tocaram num produto específico.
+ *
+ * Por produto e não por estabelecimento porque o estabelecimento é
+ * partilhado por toda a corrida (ver global-setup.ts): contar as vendas do
+ * tenant somaria as dos testes anteriores. Cada teste cria o seu produto,
+ * por isso filtrar por produto dá isolamento perfeito.
+ */
+export async function salesForProduct(
   api: APIRequestContext,
   tenant: TestTenant,
+  productId: string,
 ): Promise<Array<{ id: string; total_amount: number; client_ref: string | null }>> {
-  const res = await api.get('/sales', {
+  const res = await api.get('/api/sales?pageSize=200', {
     headers: { Authorization: `Bearer ${tenant.token}` },
   });
   expect(res.ok(), await res.text()).toBeTruthy();
   const body = await res.json();
-  return body.data.items;
+
+  return (body.data.items as Array<{
+    id: string;
+    total_amount: number;
+    client_ref: string | null;
+    items: Array<{ product_id: string }>;
+  }>).filter((venda) => venda.items.some((item) => item.product_id === productId));
 }
 
-/** Entra na app pela interface e espera até o POS estar pronto a vender. */
-export async function login(page: Page, tenant: TestTenant): Promise<void> {
-  await page.goto('/login');
-  await page.getByLabel('Email').fill(tenant.adminEmail);
-  await page.getByLabel('Senha').fill(tenant.adminPassword);
-  await page.getByRole('button', { name: 'Entrar' }).click();
+/**
+ * Põe a app com sessão iniciada sem passar pelo formulário de login.
+ *
+ * Não é só velocidade: o login está limitado a 10 por cada 15 minutos por
+ * IP, e uma dezena de testes a autenticar-se pela interface esgota-o. O
+ * formulário continua a ser exercido a sério pelos testes de credenciais,
+ * que são poucos e cabem no limite.
+ *
+ * As chaves são as mesmas que o utils/session.ts usa.
+ */
+export async function login(page: Page, tenant: TestTenant & { user?: unknown }): Promise<void> {
+  await page.addInitScript(
+    ([token, user]) => {
+      window.localStorage.setItem('kuava:auth-token', token as string);
+      window.localStorage.setItem('kuava:auth-user', JSON.stringify(user));
+    },
+    [tenant.token, (tenant as { user?: unknown }).user],
+  );
+
+  await page.goto('/pos');
 
   // O POS só está utilizável quando o catálogo chegou; esperar pelo campo
   // de pesquisa evita cliques em cartões que ainda não existem.
   await expect(page.getByPlaceholder(/código de barras/i)).toBeVisible();
 }
 
-/** Adiciona um produto ao carrinho tocando no cartão respectivo. */
+/** Entra pelo formulário a sério — só para os testes que testam o próprio login. */
+export async function loginPelaInterface(page: Page, email: string, senha: string): Promise<void> {
+  await page.goto('/login');
+  await page.getByLabel(/^Email/).fill(email);
+  await page.getByLabel(/^Senha/).fill(senha);
+  await page.getByRole('button', { name: 'Entrar' }).click();
+}
+
+/**
+ * Espera até o produto estar mesmo no catálogo do ecrã.
+ *
+ * Chamar isto ANTES de cortar a rede é essencial nos testes offline: o
+ * PosPage carrega o catálogo uma vez ao montar e só então o guarda em
+ * IndexedDB (cacheProducts, fire-and-forget). Se a rede cair antes disso, o
+ * pedido falha, o fallback lê um cache ainda vazio e não há nada para
+ * vender. Um terminal a sério também só vende offline o que já tinha
+ * descarregado.
+ */
+export async function waitForCatalog(page: Page, productName: string): Promise<void> {
+  await page.getByPlaceholder(/código de barras/i).fill(productName);
+  await expect(page.getByRole('button').filter({ hasText: productName }).first()).toBeVisible();
+}
+
+/**
+ * Pesquisa o produto e toca no cartão, tantas vezes quantas as unidades.
+ *
+ * A pesquisa não é acessório: o estabelecimento é reutilizado entre corridas
+ * (ver global-setup.ts) e o catálogo acumula os produtos de todos os testes
+ * já feitos. Sem filtrar, o cartão novo fica no fim de uma grelha longa e
+ * fora da área visível, e o clique nunca chega lá. Filtrar primeiro também é
+ * o que o operador faz de facto no balcão.
+ */
 export async function addToCart(page: Page, productName: string, times = 1): Promise<void> {
-  const card = page.getByRole('button').filter({ hasText: productName });
+  const pesquisa = page.getByPlaceholder(/código de barras/i);
+  await pesquisa.fill(productName);
+
+  const card = page.getByRole('button').filter({ hasText: productName }).first();
+  await expect(card).toBeVisible();
+
   for (let i = 0; i < times; i += 1) {
     // eslint-disable-next-line no-await-in-loop
-    await card.first().click();
+    await card.click();
   }
 }
 
@@ -138,9 +193,36 @@ export async function finalizeSale(page: Page): Promise<void> {
   await expect(page.getByText('Venda concluída')).toBeVisible();
 }
 
-/** Fecha o diálogo de sucesso, deixando o POS pronto para a venda seguinte. */
+/**
+ * Fecha o diálogo de sucesso, deixando o POS pronto para a venda seguinte.
+ *
+ * Espera até o botão estar mesmo no topo no seu próprio centro antes de
+ * clicar. Durante a transição de entrada do MUI o DialogContent fica por
+ * cima e o Playwright recusa o clique com "intercepts pointer events";
+ * confirmar a sobreposição com elementFromPoint é determinístico, ao
+ * contrário de uma espera fixa, e evita mascarar o problema com um clique
+ * forçado.
+ */
 export async function closeSaleDialog(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Nova venda' }).click();
+  const dialogo = page.getByRole('dialog');
+  await expect(dialogo).toBeVisible();
+
+  const botao = dialogo.getByRole('button', { name: 'Nova venda' });
+  await expect(botao).toBeVisible();
+
+  await expect
+    .poll(
+      async () =>
+        botao.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const topo = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+          return topo === el || el.contains(topo);
+        }),
+      { timeout: 15_000, message: 'o botão "Nova venda" continuou tapado por outro elemento' },
+    )
+    .toBe(true);
+
+  await botao.click();
   await expect(page.getByText('Venda concluída')).toBeHidden();
 }
 
