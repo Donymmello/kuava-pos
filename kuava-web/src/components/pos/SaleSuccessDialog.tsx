@@ -1,4 +1,15 @@
-import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, Stack, Typography } from '@mui/material';
+import {
+  Alert,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Stack,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { PAYMENT_METHOD_LABELS, Sale, Tenant } from '../../types';
 import { formatMzn } from '../../utils/currency';
@@ -17,12 +28,21 @@ interface SaleSuccessDialogProps {
  * procurar a venda depois em Faturas.
  */
 export default function SaleSuccessDialog({ sale, tenant, onPrintReceipt, onClose }: SaleSuccessDialogProps) {
+  const theme = useTheme();
+  // Num telemóvel, os botões de fatura/recibo mais o "Nova venda" não cabem
+  // numa linha; com o diálogo centrado, o que sobra passa para lá do fundo
+  // do ecrã e o "Nova venda" fica cortado e sem se conseguir tocar — logo a
+  // seguir a cada venda, que é quando mais se precisa dele. Em ecrã pequeno
+  // o diálogo passa a ocupar o ecrã todo, que é o padrão do Material Design
+  // para este caso.
+  const ecraPequeno = useMediaQuery(theme.breakpoints.down('sm'));
+
   if (!sale) {
     return null;
   }
 
   return (
-    <Dialog open={Boolean(sale)} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={Boolean(sale)} onClose={onClose} maxWidth="xs" fullWidth fullScreen={ecraPequeno}>
       <DialogTitle>
         <Stack direction="row" spacing={1} alignItems="center">
           <CheckCircleOutlineIcon color="success" />
