@@ -91,7 +91,19 @@ export const useOfflineStore = create<OfflineState>((set, get) => ({
     let failed = 0;
 
     try {
-      const pending = await offlineDb.pendingSales.where('status').anyOf(['pending', 'error']).toArray();
+      // 'syncing' entra aqui de propósito: esse estado é escrito mesmo antes
+      // do envio, e se a app morrer nesse intervalo (recarregamento, separador
+      // fechado, tablet sem bateria) a venda ficava presa nele para sempre —
+      // não estava em 'pending' nem em 'error', e nada a voltava a apanhar.
+      // Um 'syncing' que sobreviva a um arranque é, por definição, obsoleto:
+      // nenhuma sincronização decorre num processo que já não existe.
+      // Reenviar é seguro porque o client_ref é chave de idempotência — se a
+      // venda chegou mesmo a ser gravada, o servidor devolve a existente em
+      // vez de a duplicar (ver saleService.createSale).
+      const pending = await offlineDb.pendingSales
+        .where('status')
+        .anyOf(['pending', 'error', 'syncing'])
+        .toArray();
 
       for (const sale of pending) {
         try {
