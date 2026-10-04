@@ -5,6 +5,7 @@ import pinoHttp from 'pino-http';
 import { env } from './config/env';
 import { logger } from './config/logger';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler';
+import { sequelize } from './models';
 import routes from './routes';
 import { sendSuccess } from './utils/apiResponse';
 
@@ -46,8 +47,28 @@ export function createApp(): Application {
     }),
   );
 
-  app.get('/health', (_req, res) => {
-    sendSuccess(res, { status: 'ok', environment: env.nodeEnv }, 'Kuava API operacional');
+  /**
+   * Toca mesmo na base de dados, de propósito.
+   *
+   * Antes respondia 200 só por o processo Node estar vivo, e isso já nos
+   * enganou: num corte de DNS interno do Docker, o /health dizia 200
+   * enquanto todas as rotas de negócio devolviam 500. Um monitor externo
+   * apontado aqui teria dado tudo por bem durante o corte inteiro.
+   *
+   * O SELECT 1 é o pedido mais barato que prova a ligação de ponta a ponta.
+   */
+  app.get('/health', async (_req, res) => {
+    try {
+      await sequelize.query('SELECT 1');
+      sendSuccess(res, { status: 'ok', database: 'ok', environment: env.nodeEnv }, 'Kuava API operacional');
+    } catch (error) {
+      logger.error({ err: error }, 'Health check falhou: base de dados inacessível');
+      res.status(503).json({
+        success: false,
+        data: { status: 'degraded', database: 'unreachable', environment: env.nodeEnv },
+        message: 'Base de dados inacessível',
+      });
+    }
   });
 
   app.use('/api', routes);
