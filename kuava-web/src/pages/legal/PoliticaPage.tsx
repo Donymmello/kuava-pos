@@ -1,10 +1,12 @@
 import { Alert, List, ListItem, ListItemText, Typography } from '@mui/material';
 import LegalLayout from './LegalLayout';
+import { SUPORTE_EMAIL, SUPORTE_TELEFONE } from '../../config/suporte';
 
 // TODO(dono): ver a mesma nota em TermosPage.tsx. Os contactos abaixo
 // precisam dos dados legais reais da empresa.
-const EMAIL_CONTACTO = '[EMAIL DE CONTACTO]';
-const TELEFONE_CONTACTO = '[TELEFONE DE CONTACTO]';
+// Vindos de config/suporte.ts, para o contacto viver num sítio só.
+const EMAIL_CONTACTO = SUPORTE_EMAIL;
+const TELEFONE_CONTACTO = SUPORTE_TELEFONE;
 
 export default function PoliticaPage() {
   return (

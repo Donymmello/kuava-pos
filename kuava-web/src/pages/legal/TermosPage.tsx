@@ -1,5 +1,6 @@
 import { Alert, List, ListItem, ListItemText, Typography } from '@mui/material';
 import LegalLayout from './LegalLayout';
+import { SUPORTE_EMAIL, SUPORTE_TELEFONE } from '../../config/suporte';
 
 // TODO(dono): substituir os campos entre colchetes pelos dados legais reais
 // da empresa (nome legal, NUIT, morada, contactos) assim que definidos.
@@ -8,8 +9,9 @@ import LegalLayout from './LegalLayout';
 const NOME_LEGAL_EMPRESA = '[NOME LEGAL DA EMPRESA]';
 const NUIT_EMPRESA = '[NÚMERO]';
 const MORADA_EMPRESA = '[MORADA]';
-const EMAIL_CONTACTO = '[EMAIL DE CONTACTO]';
-const TELEFONE_CONTACTO = '[TELEFONE DE CONTACTO]';
+// Vindos de config/suporte.ts, para o contacto viver num sítio só.
+const EMAIL_CONTACTO = SUPORTE_EMAIL;
+const TELEFONE_CONTACTO = SUPORTE_TELEFONE;
 
 export default function TermosPage() {
   return (

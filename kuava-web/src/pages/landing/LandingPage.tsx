@@ -23,6 +23,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { useColorMode } from '../../theme/ColorModeContext';
 import { UserRole } from '../../types';
 import { formatMzn } from '../../utils/currency';
+import { SUPORTE_EMAIL, SUPORTE_TELEFONE, SUPORTE_WHATSAPP_URL, suporteMailto } from '../../config/suporte';
 
 const FEATURES = [
   {
@@ -287,7 +288,28 @@ export default function LandingPage() {
           <Typography variant="body2" color="text.secondary">
             © {new Date().getFullYear()} Kuava POS. Todos os direitos reservados.
           </Typography>
-          <Stack direction="row" spacing={3}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={{ xs: 1, sm: 3 }}>
+            {/* Contacto no rodapé, antes dos links legais: é o primeiro sítio
+                onde um comerciante que ainda não é cliente vai procurar uma
+                pessoa. Até 2026-10-05 a landing não tinha nenhum. */}
+            <Link
+              href={SUPORTE_WHATSAPP_URL}
+              target="_blank"
+              rel="noopener"
+              underline="hover"
+              color="text.secondary"
+              variant="body2"
+            >
+              WhatsApp {SUPORTE_TELEFONE}
+            </Link>
+            <Link
+              href={suporteMailto('contacto pela landing page')}
+              underline="hover"
+              color="text.secondary"
+              variant="body2"
+            >
+              {SUPORTE_EMAIL}
+            </Link>
             <Link component={RouterLink} to="/termos" underline="hover" color="text.secondary" variant="body2">
               Termos de Serviço
             </Link>
