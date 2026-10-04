@@ -33,11 +33,13 @@ import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import BarChartOutlinedIcon from '@mui/icons-material/BarChartOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import MoreHorizIcon from '@mui/icons-material/MoreHoriz';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOfflineStore } from '../../store/useOfflineStore';
 import { useSubscriptionStore } from '../../store/useSubscriptionStore';
 import { useColorMode } from '../../theme/ColorModeContext';
 import { SubscriptionStatus, USER_ROLE_LABELS, UserRole } from '../../types';
+import { SUPORTE_TELEFONE, SUPORTE_WHATSAPP_URL } from '../../config/suporte';
 
 // Só o ADMIN vê este aviso, é quem trata da assinatura, não a caixa/gerente
 // do dia a dia. Lê o estado já carregado pelo SubscriptionGuard (que
@@ -259,6 +261,23 @@ export default function AppLayout() {
               </span>
             </Tooltip>
           )}
+
+          {/* Ajuda sempre a mao, nos dois tamanhos de ecra. Ate hoje a app nao
+              tinha um unico contacto: quem ficava preso nao tinha para onde
+              ligar de dentro do produto. */}
+          <Tooltip title={`Ajuda por WhatsApp: ${SUPORTE_TELEFONE}`}>
+            <IconButton
+              component="a"
+              href={SUPORTE_WHATSAPP_URL}
+              target="_blank"
+              rel="noopener"
+              size="small"
+              sx={{ mr: 1 }}
+              aria-label={`Pedir ajuda por WhatsApp para ${SUPORTE_TELEFONE}`}
+            >
+              <HelpOutlineIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
 
           <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo escuro'}>
             <IconButton onClick={toggleColorMode} size="small" sx={{ mr: 1 }}>

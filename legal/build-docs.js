@@ -137,7 +137,7 @@ const termos = new Document({
         p('Estes Termos regem-se pela lei da República de Moçambique. Quaisquer litígios serão submetidos aos tribunais moçambicanos competentes.'),
 
         h1('12. Contacto'),
-        p('Para questões sobre estes Termos: [EMAIL DE CONTACTO] / [TELEFONE DE CONTACTO].'),
+        p('Para questões sobre estes Termos: suporte@vektramz.com / +258 86 916 4456.'),
       ],
     },
   ],
@@ -210,7 +210,7 @@ const privacidade = new Document({
         p('Esta Política pode ser atualizada periodicamente, nomeadamente para refletir a entrada em vigor da nova Lei de Proteção de Dados Pessoais moçambicana. Alterações materiais serão comunicadas aos Estabelecimentos com conta ativa.'),
 
         h1('12. Contacto'),
-        p('Para questões sobre esta Política ou para exercer os direitos descritos na secção 8: [EMAIL DE CONTACTO] / [TELEFONE DE CONTACTO].'),
+        p('Para questões sobre esta Política ou para exercer os direitos descritos na secção 8: suporte@vektramz.com / +258 86 916 4456.'),
       ],
     },
   ],

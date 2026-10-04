@@ -26,6 +26,7 @@ import { createSubscriptionRequest } from '../../services/subscriptionService';
 import { SUBSCRIPTION_PLAN_LABELS, SubscriptionPlan, UserRole } from '../../types';
 import { formatMzn } from '../../utils/currency';
 import { formatDate } from '../../utils/date';
+import LinhaDeSuporte from '../../components/common/LinhaDeSuporte';
 
 export default function SubscriptionPage() {
   const user = useAuthStore((state) => state.user);
@@ -200,6 +201,11 @@ export default function SubscriptionPage() {
                       Depois de fazeres a transferência, guarda o comprovativo. Assim que o pagamento for
                       confirmado, o acesso é reativado automaticamente, não precisas de fazer mais nada.
                     </Alert>
+
+                    <LinhaDeSuporte
+                      contexto={`pedido ${status.pendingRequest.reference}`}
+                      texto="Já transferiste e o acesso continua bloqueado? Fala connosco com a referência à mão."
+                    />
                   </Stack>
                 </Paper>
               )}
@@ -286,11 +292,22 @@ function SubscriptionSummary({ hasAccess, isAdmin, trialEndsAt, subscriptionExpi
     );
   }
 
+  // Um CASHIER com o acesso suspenso nao pode resolver nada sozinho: nao ve
+  // os planos nem gera pedidos. Sem contacto, so lhe resta fechar a app.
   return (
-    <Typography variant="body2" color={hasAccess ? 'text.secondary' : 'error.main'}>
-      {isAdmin
-        ? 'O período de teste terminou e não há nenhum plano pago em vigor.'
-        : 'O acesso deste estabelecimento está suspenso.'}
-    </Typography>
+    <Stack spacing={0.5}>
+      <Typography variant="body2" color={hasAccess ? 'text.secondary' : 'error.main'}>
+        {isAdmin
+          ? 'O período de teste terminou e não há nenhum plano pago em vigor.'
+          : 'O acesso deste estabelecimento está suspenso.'}
+      </Typography>
+      {!hasAccess && (
+        <LinhaDeSuporte
+          contexto="acesso suspenso"
+          texto={isAdmin ? undefined : 'Precisas de ajuda? Fala com o suporte.'}
+          variante={isAdmin ? 'discreta' : 'destaque'}
+        />
+      )}
+    </Stack>
   );
 }
