@@ -122,7 +122,13 @@ export async function cancelSubscriptionRequestHandler(
   next: NextFunction,
 ): Promise<void> {
   try {
-    const request = await cancelSubscriptionRequest(req.params.id);
+    // Mesmo motivo do handler de confirmacao: o authMiddleware garante
+    // req.user nesta rota, mas o tipo e opcional, e um cancelamento sem autor
+    // registado seria exactamente o que esta coluna existe para evitar.
+    if (!req.user) {
+      throw new AppError('Autenticação obrigatória', 401);
+    }
+    const request = await cancelSubscriptionRequest(req.params.id, req.user.id);
     sendSuccess(res, serializeSubscriptionRequest(request), 'Pedido cancelado');
   } catch (error) {
     next(error);

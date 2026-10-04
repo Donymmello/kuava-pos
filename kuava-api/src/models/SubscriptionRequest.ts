@@ -6,7 +6,7 @@ import {
   Model,
 } from 'sequelize';
 import { sequelize } from '../config/database';
-import { SubscriptionPlan, SubscriptionRequestStatus } from '../types/enums';
+import { SubscriptionCancelReason, SubscriptionPlan, SubscriptionRequestStatus } from '../types/enums';
 
 /**
  * Pedido de assinatura da plataforma Kuava (2026-09-09): criado quando um
@@ -35,6 +35,10 @@ export class SubscriptionRequest extends Model<
    * registo de quem o fez (ver subscriptionService.confirmSubscriptionRequest).
    */
   declare confirmed_by: CreationOptional<string | null>;
+  /** O SUPERADMIN que cancelou, quando houve um. Null quando a razão é REPLACED. */
+  declare cancelled_by: CreationOptional<string | null>;
+  /** Porque foi cancelado; ver SubscriptionCancelReason. Null enquanto o pedido vive. */
+  declare cancelled_reason: CreationOptional<SubscriptionCancelReason | null>;
   declare readonly created_at: CreationOptional<Date>;
   declare readonly updated_at: CreationOptional<Date>;
 }
@@ -78,6 +82,14 @@ SubscriptionRequest.init(
     },
     confirmed_by: {
       type: DataTypes.UUID,
+      allowNull: true,
+    },
+    cancelled_by: {
+      type: DataTypes.UUID,
+      allowNull: true,
+    },
+    cancelled_reason: {
+      type: DataTypes.ENUM(...Object.values(SubscriptionCancelReason)),
       allowNull: true,
     },
     created_at: DataTypes.DATE,

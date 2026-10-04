@@ -259,7 +259,7 @@ describe('assinatura — pedido de plano e confirmação manual', () => {
     expect(confirmado?.confirmed_at).not.toBeNull();
   });
 
-  it('não deixa autor gravado num pedido apenas cancelado', async () => {
+  it('grava quem cancelou, e não confunde isso com uma confirmação', async () => {
     const superadmin = await createSuperadminAndLogin();
     const tenant = await registerTestTenant();
 
@@ -272,8 +272,35 @@ describe('assinatura — pedido de plano e confirmação manual', () => {
       .post(`/api/superadmin/subscription-requests/${request.body.data.id}/cancel`)
       .set('Authorization', `Bearer ${superadmin.token}`);
 
+    const autor = await User.findOne({ where: { email: superadmin.email } });
     const cancelado = await SubscriptionRequest.findByPk(request.body.data.id);
     expect(cancelado?.status).toBe('CANCELLED');
+    expect(cancelado?.cancelled_by).toBe(autor?.id);
+    expect(cancelado?.cancelled_reason).toBe('SUPERADMIN');
+    // Cancelar nao e confirmar: o campo da confirmacao continua vazio.
     expect(cancelado?.confirmed_by).toBeNull();
+    expect(cancelado?.confirmed_at).toBeNull();
+  });
+
+  it('um pedido descartado automaticamente fica sem autor, mas diz porquê', async () => {
+    const tenant = await registerTestTenant();
+
+    // O cliente muda de ideias antes de pagar: o pedido anterior e descartado
+    // pelo sistema, nao por uma pessoa.
+    const primeiro = await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'MONTHLY' });
+    await api
+      .post('/api/subscription/requests')
+      .set('Authorization', `Bearer ${tenant.token}`)
+      .send({ plan: 'ANNUAL' });
+
+    const descartado = await SubscriptionRequest.findByPk(primeiro.body.data.id);
+    expect(descartado?.status).toBe('CANCELLED');
+    // O null aqui e legitimo, e a razao e o que o torna legivel: sem ela,
+    // nao se distinguia de um cancelamento humano por registar.
+    expect(descartado?.cancelled_by).toBeNull();
+    expect(descartado?.cancelled_reason).toBe('REPLACED');
   });
 });

@@ -48,6 +48,18 @@ export const SUBSCRIPTION_PLAN_DURATION_DAYS: Record<SubscriptionPlan, number> =
   [SubscriptionPlan.ANNUAL]: 365,
 };
 
+/**
+ * Porque um pedido foi cancelado. Existe para o cancelled_by a null ser
+ * legível: REPLACED significa que o sistema o descartou sozinho e não há
+ * autor nenhum; SUPERADMIN sem autor seria uma anomalia a investigar.
+ */
+export enum SubscriptionCancelReason {
+  /** Um superadmin carregou em cancelar no painel. */
+  SUPERADMIN = 'SUPERADMIN',
+  /** O cliente gerou um pedido novo e este foi descartado automaticamente. */
+  REPLACED = 'REPLACED',
+}
+
 export enum SubscriptionRequestStatus {
   PENDING = 'PENDING',
   CONFIRMED = 'CONFIRMED',

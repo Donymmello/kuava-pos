@@ -3,6 +3,7 @@ import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { sequelize, SubscriptionRequest, Tenant, User } from '../models';
 import {
+  SubscriptionCancelReason,
   SubscriptionPlan,
   SUBSCRIPTION_PLAN_DURATION_DAYS,
   SubscriptionRequestStatus,
@@ -115,8 +116,13 @@ export async function createSubscriptionRequest(
       throw new AppError('Estabelecimento não encontrado', 404);
     }
 
+    // Cancelamento sem autor: foi o proprio cliente a pedir outro plano. A
+    // razao e o que torna o cancelled_by a null legivel mais tarde.
     await SubscriptionRequest.update(
-      { status: SubscriptionRequestStatus.CANCELLED },
+      {
+        status: SubscriptionRequestStatus.CANCELLED,
+        cancelled_reason: SubscriptionCancelReason.REPLACED,
+      },
       { where: { tenant_id: tenantId, status: SubscriptionRequestStatus.PENDING }, transaction },
     );
 
@@ -298,8 +304,19 @@ export async function confirmSubscriptionRequest(
   return result;
 }
 
-/** O superadmin usa isto para descartar um pedido enganado/obsoleto sem confirmar pagamento nenhum. */
-export async function cancelSubscriptionRequest(requestId: string): Promise<SubscriptionRequest> {
+/**
+ * O superadmin usa isto para descartar um pedido enganado/obsoleto sem
+ * confirmar pagamento nenhum.
+ *
+ * `cancelledBy` e o id de quem carregou no botao. Cancelar nao tira acesso a
+ * ninguem (o cliente gera outro pedido em dois cliques), mas com mais do que
+ * uma pessoa no painel um cancelamento repetido podia manter um cliente
+ * bloqueado sem deixar rasto. Fica registo.
+ */
+export async function cancelSubscriptionRequest(
+  requestId: string,
+  cancelledBy: string,
+): Promise<SubscriptionRequest> {
   const request = await SubscriptionRequest.findByPk(requestId);
   if (!request) {
     throw new AppError('Pedido de assinatura não encontrado', 404);
@@ -309,6 +326,20 @@ export async function cancelSubscriptionRequest(requestId: string): Promise<Subs
   }
 
   request.status = SubscriptionRequestStatus.CANCELLED;
+  request.cancelled_by = cancelledBy;
+  request.cancelled_reason = SubscriptionCancelReason.SUPERADMIN;
   await request.save();
+
+  logger.info(
+    {
+      requestId: request.id,
+      reference: request.reference,
+      tenantId: request.tenant_id,
+      amount: request.amount,
+      cancelledBy,
+    },
+    'Pedido de assinatura cancelado pelo superadmin',
+  );
+
   return request;
 }
