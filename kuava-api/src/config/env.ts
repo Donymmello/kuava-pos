@@ -66,6 +66,8 @@ export const env = {
     bankName: requireEnv('KUAVA_BANK_NAME', 'PREENCHER_NOME_DO_BANCO'),
     bankAccountHolder: requireEnv('KUAVA_BANK_ACCOUNT_HOLDER', 'PREENCHER_TITULAR_DA_CONTA'),
     bankNib: requireEnv('KUAVA_BANK_NIB', 'PREENCHER_NIB'),
+    mpesaNumber: requireEnv('KUAVA_MPESA_NUMBER', '+258847523217'),
+    mpesaAccountHolder: requireEnv('KUAVA_MPESA_ACCOUNT_HOLDER', 'Sidonio Ali Antonio'),
     monthlyPriceMzn: parseFloat(requireEnv('KUAVA_MONTHLY_PRICE_MZN', '1299')),
     annualPriceMzn: parseFloat(requireEnv('KUAVA_ANNUAL_PRICE_MZN', '12990')),
   },

@@ -181,6 +181,24 @@ export default function SubscriptionPage() {
 
                     <Divider />
 
+                    <Typography variant="subtitle2">M-Pesa</Typography>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">
+                        Número
+                      </Typography>
+                      <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                        {status.bankDetails.mpesaNumber}
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2" color="text.secondary">
+                        Titular
+                      </Typography>
+                      <Typography variant="body2">{status.bankDetails.mpesaAccountHolder}</Typography>
+                    </Stack>
+
+                    <Divider />
+
                     <Stack spacing={0.5}>
                       <Typography variant="body2" color="text.secondary">
                         Referência (coloca na descrição da transferência)

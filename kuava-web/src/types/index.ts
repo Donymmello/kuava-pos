@@ -108,6 +108,8 @@ export interface SubscriptionBankDetails {
   bankName: string;
   accountHolder: string;
   nib: string;
+  mpesaNumber: string;
+  mpesaAccountHolder: string;
 }
 
 export interface SubscriptionStatus {

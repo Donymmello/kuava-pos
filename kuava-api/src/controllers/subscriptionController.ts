@@ -36,6 +36,8 @@ export async function getSubscriptionStatusHandler(
         bank_name: status.bankDetails.bankName,
         account_holder: status.bankDetails.accountHolder,
         nib: status.bankDetails.nib,
+        mpesa_number: status.bankDetails.mpesaNumber,
+        mpesa_account_holder: status.bankDetails.mpesaAccountHolder,
       },
     });
   } catch (error) {

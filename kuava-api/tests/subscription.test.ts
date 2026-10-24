@@ -41,6 +41,16 @@ describe('assinatura — pedido de plano e confirmação manual', () => {
     expect(res.body.data.amount).toBeGreaterThan(0);
   });
 
+  it('mostra os dados bancários e M-Pesa na resposta do estado da assinatura', async () => {
+    const tenant = await registerTestTenant();
+
+    const res = await api.get('/api/subscription/status').set('Authorization', `Bearer ${tenant.token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.bank_details.mpesa_number).toBe('+258847523217');
+    expect(res.body.data.bank_details.mpesa_account_holder).toBe('Sidonio Ali Antonio');
+  });
+
   it('bloqueia um CASHIER de criar um pedido de plano, só o ADMIN pode', async () => {
     const tenant = await registerTestTenant();
     const cashier = await createTestUser(tenant.token, { role: 'CASHIER' });

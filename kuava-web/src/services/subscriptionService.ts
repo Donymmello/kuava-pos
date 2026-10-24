@@ -7,7 +7,13 @@ interface StatusResponseBody {
   subscription_expires_at: string | null;
   pending_request: SubscriptionRequest | null;
   plans: Array<{ plan: SubscriptionPlan; price_mzn: number }>;
-  bank_details: { bank_name: string; account_holder: string; nib: string };
+  bank_details: {
+    bank_name: string;
+    account_holder: string;
+    nib: string;
+    mpesa_number: string;
+    mpesa_account_holder: string;
+  };
 }
 
 export async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
@@ -24,6 +30,8 @@ export async function fetchSubscriptionStatus(): Promise<SubscriptionStatus> {
       bankName: body.bank_details.bank_name,
       accountHolder: body.bank_details.account_holder,
       nib: body.bank_details.nib,
+      mpesaNumber: body.bank_details.mpesa_number,
+      mpesaAccountHolder: body.bank_details.mpesa_account_holder,
     },
   };
 }

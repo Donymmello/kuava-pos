@@ -31,7 +31,13 @@ export interface SubscriptionStatus {
   subscriptionExpiresAt: Date | null;
   pendingRequest: SubscriptionRequest | null;
   plans: Array<{ plan: SubscriptionPlan; priceMzn: number }>;
-  bankDetails: { bankName: string; accountHolder: string; nib: string };
+  bankDetails: {
+    bankName: string;
+    accountHolder: string;
+    nib: string;
+    mpesaNumber: string;
+    mpesaAccountHolder: string;
+  };
 }
 
 /**
@@ -91,6 +97,8 @@ export async function getSubscriptionStatus(tenantId: string): Promise<Subscript
       bankName: env.billing.bankName,
       accountHolder: env.billing.bankAccountHolder,
       nib: env.billing.bankNib,
+      mpesaNumber: env.billing.mpesaNumber,
+      mpesaAccountHolder: env.billing.mpesaAccountHolder,
     },
   };
 }
