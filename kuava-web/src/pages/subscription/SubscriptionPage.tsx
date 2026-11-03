@@ -16,6 +16,7 @@ import {
   Typography,
 } from '@mui/material';
 import PointOfSaleIcon from '@mui/icons-material/PointOfSale';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ContentCopyOutlinedIcon from '@mui/icons-material/ContentCopyOutlined';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -94,6 +95,11 @@ export default function SubscriptionPage() {
           <Typography variant="h6" sx={{ flex: 1 }}>
             Kuava POS
           </Typography>
+          {status?.hasAccess && (
+            <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/pos')} size="small">
+              Voltar ao POS
+            </Button>
+          )}
           {user && (
             <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }}>
               {user.name}

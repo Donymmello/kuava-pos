@@ -72,8 +72,17 @@ export default function LoginPage() {
       <Paper variant="outlined" sx={{ p: 4, width: '100%', maxWidth: 380 }}>
         <Stack spacing={3} component="form" onSubmit={handleSubmit}>
           <Stack spacing={1} alignItems="center">
-            <PointOfSaleIcon color="primary" fontSize="large" />
-            <Typography variant="h5">Kuava POS</Typography>
+            <Link
+              component={RouterLink}
+              to="/"
+              underline="none"
+              color="inherit"
+              aria-label="Voltar à página inicial"
+              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}
+            >
+              <PointOfSaleIcon color="primary" fontSize="large" />
+              <Typography variant="h5">Kuava POS</Typography>
+            </Link>
             <Typography variant="body2" color="text.secondary" textAlign="center">
               Inicie sessão para aceder ao seu estabelecimento
             </Typography>
