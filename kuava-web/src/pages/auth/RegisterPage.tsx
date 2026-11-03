@@ -47,8 +47,8 @@ export default function RegisterPage() {
       return;
     }
 
-    if (adminPassword.length < 6) {
-      setFormError('A senha deve ter pelo menos 6 caracteres');
+    if (adminPassword.length < 12) {
+      setFormError('A senha deve ter pelo menos 12 caracteres');
       return;
     }
 
@@ -160,6 +160,8 @@ export default function RegisterPage() {
                 value={adminPassword}
                 onChange={(event) => setAdminPassword(event.target.value)}
                 autoComplete="new-password"
+                helperText="Use pelo menos 12 caracteres. Prefira uma frase-senha e evite dados pessoais."
+                inputProps={{ minLength: 12 }}
                 required
                 fullWidth
               />
