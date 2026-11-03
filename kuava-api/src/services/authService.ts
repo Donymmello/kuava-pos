@@ -6,6 +6,7 @@ import { UserRole } from '../types/enums';
 import { AppError } from '../utils/AppError';
 
 const SALT_ROUNDS = 10;
+const MIN_ADMIN_PASSWORD_LENGTH = 12;
 
 // Fase inicial (2026-08-24): todo o estabelecimento novo entra num período
 // de teste gratuito de 7 dias antes de precisar de um plano pago. Desde
@@ -63,6 +64,10 @@ function issueToken(user: User): string {
 }
 
 export async function registerTenant(input: RegisterTenantInput): Promise<AuthResult> {
+  if (typeof input.adminPassword !== 'string' || input.adminPassword.length < MIN_ADMIN_PASSWORD_LENGTH) {
+    throw new AppError(`A senha do administrador deve ter pelo menos ${MIN_ADMIN_PASSWORD_LENGTH} caracteres`, 422);
+  }
+
   return sequelize.transaction(async (transaction) => {
     const existingTenant = await Tenant.findOne({ where: { nuit: input.nuit }, transaction });
     if (existingTenant) {

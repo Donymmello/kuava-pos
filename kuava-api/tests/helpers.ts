@@ -28,7 +28,7 @@ export async function registerTestTenant(
     nuit: `1000000${String(counter).padStart(3, '0')}`,
     adminName: 'Admin de Teste',
     adminEmail,
-    adminPassword: 'senha12345',
+    adminPassword: 'senha-forte-123',
   });
 
   if (res.status !== 201) {
@@ -39,7 +39,7 @@ export async function registerTestTenant(
     token: res.body.data.token,
     tenantId: res.body.data.user.tenantId,
     adminEmail,
-    adminPassword: 'senha12345',
+    adminPassword: 'senha-forte-123',
   };
 }
 

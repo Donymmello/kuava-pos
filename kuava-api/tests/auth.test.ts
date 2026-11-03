@@ -8,7 +8,7 @@ describe('autenticação e gestão de utilizadores', () => {
       nuit: '400111222',
       adminName: 'Dona da Loja',
       adminEmail: 'dona@loja.teste',
-      adminPassword: 'senha12345',
+      adminPassword: 'senha-forte-123',
     });
 
     expect(res.status).toBe(201);
@@ -16,6 +16,19 @@ describe('autenticação e gestão de utilizadores', () => {
     expect(res.body.data.token).toBeTruthy();
     expect(res.body.data.user.role).toBe('ADMIN');
     expect(res.body.data.user.email).toBe('dona@loja.teste');
+  });
+
+  it('rejeita senhas curtas ao registar o administrador do estabelecimento', async () => {
+    const res = await api.post('/api/auth/register').send({
+      tenantName: 'Loja Principal',
+      nuit: '400111223',
+      adminName: 'Dona da Loja',
+      adminEmail: 'dona2@loja.teste',
+      adminPassword: 'fraca123',
+    });
+
+    expect(res.status).toBe(422);
+    expect(res.body.message).toMatch(/pelo menos 12 caracteres/i);
   });
 
   it('permite login com as credenciais corretas', async () => {
