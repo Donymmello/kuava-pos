@@ -1,9 +1,8 @@
-import { Alert, List, ListItem, ListItemText, Typography } from '@mui/material';
+import { List, ListItem, ListItemText, Typography } from '@mui/material';
 import LegalLayout from './LegalLayout';
 import { SUPORTE_EMAIL, SUPORTE_TELEFONE } from '../../config/suporte';
 
-// TODO(dono): ver a mesma nota em TermosPage.tsx. Os contactos abaixo
-// precisam dos dados legais reais da empresa.
+// TODO(dono): os contactos abaixo precisam dos dados legais reais da empresa.
 // Vindos de config/suporte.ts, para o contacto viver num sítio só.
 const EMAIL_CONTACTO = SUPORTE_EMAIL;
 const TELEFONE_CONTACTO = SUPORTE_TELEFONE;
@@ -11,15 +10,6 @@ const TELEFONE_CONTACTO = SUPORTE_TELEFONE;
 export default function PoliticaPage() {
   return (
     <LegalLayout title="Política de Privacidade" updatedAt="agosto de 2026">
-      <Alert severity="info">
-        Nota importante: este documento é um modelo de base e não constitui aconselhamento jurídico.
-        Antes de ser considerado definitivo, deve ser revisto por um advogado moçambicano, em
-        particular para confirmar o enquadramento fiscal (emissão de faturas, NUIT), preencher os
-        campos entre colchetes com os dados legais reais da empresa, e acompanhar a nova Lei de
-        Proteção de Dados Pessoais, aprovada pelo Conselho de Ministros e ainda pendente de aprovação
-        na Assembleia da República à data deste documento.
-      </Alert>
-
       <Typography variant="h6">1. Âmbito</Typography>
       <Typography>
         Esta Política de Privacidade explica que dados pessoais a Kuava POS recolhe, para que fins, e

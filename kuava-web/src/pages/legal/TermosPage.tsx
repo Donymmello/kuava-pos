@@ -1,4 +1,4 @@
-import { Alert, List, ListItem, ListItemText, Typography } from '@mui/material';
+import { List, ListItem, ListItemText, Typography } from '@mui/material';
 import LegalLayout from './LegalLayout';
 import { SUPORTE_EMAIL, SUPORTE_TELEFONE } from '../../config/suporte';
 
@@ -16,15 +16,6 @@ const TELEFONE_CONTACTO = SUPORTE_TELEFONE;
 export default function TermosPage() {
   return (
     <LegalLayout title="Termos de Serviço" updatedAt="agosto de 2026">
-      <Alert severity="info">
-        Nota importante: este documento é um modelo de base e não constitui aconselhamento jurídico.
-        Antes de ser considerado definitivo, deve ser revisto por um advogado moçambicano, em
-        particular para confirmar o enquadramento fiscal (emissão de faturas, NUIT), preencher os
-        campos entre colchetes com os dados legais reais da empresa, e acompanhar a nova Lei de
-        Proteção de Dados Pessoais, aprovada pelo Conselho de Ministros e ainda pendente de aprovação
-        na Assembleia da República à data deste documento.
-      </Alert>
-
       <Typography variant="h6">1. Objeto</Typography>
       <Typography>
         Estes Termos de Serviço ("Termos") regulam o acesso e a utilização da plataforma Kuava POS
