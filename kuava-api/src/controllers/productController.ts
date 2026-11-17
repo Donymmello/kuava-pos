@@ -109,11 +109,7 @@ export async function createProduct(req: Request, res: Response, next: NextFunct
       tracks_batches,
     });
 
-    const message = result.wasMerged
-      ? `Produto "${result.product.name}" já existia no sistema. O stock foi somado (+${result.addedStock} ${result.product.unit}), ficando com ${result.product.stock_quantity} ${result.product.unit}, sem duplicar o produto.`
-      : 'Produto criado com sucesso';
-
-    sendSuccess(res, result.product, message, result.wasMerged ? 200 : 201);
+    sendSuccess(res, result.product, 'Produto criado com sucesso', 201);
   } catch (error) {
     next(error);
   }

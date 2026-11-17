@@ -192,84 +192,16 @@ export async function createProduct(input: CreateProductInput): Promise<CreatePr
   const cleanBarcode = input.barcode?.trim() || null;
 
   return sequelize.transaction(async (transaction) => {
-    let existing: Product | null = null;
-
-    // 1. Procura por código de barras existente (se fornecido)
+    // Verifica apenas código de barras duplicado — nomes iguais são permitidos
+    // (produtos distintos podem ter o mesmo nome, ex.: marcas diferentes)
     if (cleanBarcode) {
-      existing = await Product.findOne({
+      const existing = await Product.findOne({
         where: { tenant_id: input.tenantId, barcode: cleanBarcode },
         transaction,
-        lock: transaction.LOCK.UPDATE,
       });
-    }
-
-    // 2. Se não encontrou por código, procura por nome com mesma grafia (case-insensitive e sem espaços extras)
-    if (!existing) {
-      existing = await Product.findOne({
-        where: {
-          tenant_id: input.tenantId,
-          [Op.and]: [
-            sequelize.where(
-              sequelize.fn('LOWER', sequelize.fn('TRIM', sequelize.col('name'))),
-              trimmedName.toLowerCase(),
-            ),
-          ],
-        },
-        transaction,
-        lock: transaction.LOCK.UPDATE,
-      });
-    }
-
-    // Se o produto já existir, evita duplicação e soma o stock recebido
-    if (existing) {
-      const addedStock = roundQuantity(input.stock_quantity ?? 0);
-
-      if (existing.tracks_batches) {
-        if (addedStock > 0) {
-          await createInitialLotForExistingStock(
-            input.tenantId,
-            existing.id,
-            addedStock,
-            input.expiry_date ?? null,
-            transaction,
-          );
-        }
-      } else {
-        const nextStock = roundQuantity(existing.stock_quantity + addedStock);
-        existing.stock_quantity = nextStock;
-        if (input.expiry_date !== undefined && input.expiry_date) {
-          existing.expiry_date = input.expiry_date;
-        }
+      if (existing) {
+        throw new AppError(DUPLICATE_BARCODE_MESSAGE, 409);
       }
-
-      if (!existing.is_active) {
-        existing.is_active = true;
-      }
-
-      if (cleanBarcode && !existing.barcode) {
-        existing.barcode = cleanBarcode;
-      }
-
-      if (input.category && !existing.category) {
-        existing.category = input.category;
-      }
-
-      if (input.price !== undefined && input.price > 0) {
-        existing.price = input.price;
-      }
-
-      if (input.cost_price !== undefined && input.cost_price > 0) {
-        existing.cost_price = input.cost_price;
-      }
-
-      await existing.save({ transaction });
-      await existing.reload({ transaction });
-
-      return {
-        product: existing,
-        wasMerged: true,
-        addedStock,
-      };
     }
 
     let product: Product;
