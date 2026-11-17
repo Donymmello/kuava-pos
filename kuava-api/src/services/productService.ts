@@ -12,6 +12,12 @@ export interface ListProductsInput {
   search?: string;
   category?: string;
   activeOnly?: string;
+  status?: 'all' | 'active' | 'inactive';
+  stockStatus?: 'all' | 'in_stock' | 'low_stock' | 'out_of_stock';
+  startDate?: string;
+  endDate?: string;
+  sortBy?: 'name' | 'created_at' | 'price' | 'stock_quantity' | 'expiry_date';
+  sortOrder?: 'ASC' | 'DESC';
   page: number;
   pageSize: number;
 }
@@ -27,26 +33,76 @@ export interface ListProductsResult {
 }
 
 export async function listProducts(input: ListProductsInput): Promise<ListProductsResult> {
-  const where: Record<string, unknown> = { tenant_id: input.tenantId };
+  const where: Record<string | symbol, unknown> = { tenant_id: input.tenantId };
 
-  if (input.activeOnly !== 'false') {
+  if (input.status === 'active' || (input.activeOnly === 'true' && !input.status)) {
+    where.is_active = true;
+  } else if (input.status === 'inactive') {
+    where.is_active = false;
+  } else if (input.status === 'all' || input.activeOnly === 'false') {
+    // Não filtra is_active (mostra todos)
+  } else {
+    // Por omissão, filtra apenas produtos ativos (ex.: chamadas antigas sem activeOnly nem status)
     where.is_active = true;
   }
 
-  if (input.category) {
-    where.category = input.category;
+  if (input.category && input.category !== 'all') {
+    if (input.category === '__none__') {
+      where.category = { [Op.or]: [null, ''] };
+    } else {
+      where.category = input.category;
+    }
   }
 
-  if (input.search) {
-    where[Op.or as unknown as string] = [
-      { name: { [Op.iLike]: `%${input.search}%` } },
-      { barcode: { [Op.iLike]: `%${input.search}%` } },
+  if (input.search && input.search.trim()) {
+    const term = input.search.trim();
+    where[Op.or] = [
+      { name: { [Op.iLike]: `%${term}%` } },
+      { barcode: { [Op.iLike]: `%${term}%` } },
+      { category: { [Op.iLike]: `%${term}%` } },
     ];
+  }
+
+  const andConditions: unknown[] = [];
+
+  if (input.stockStatus === 'out_of_stock') {
+    where.stock_quantity = { [Op.lte]: 0 };
+  } else if (input.stockStatus === 'in_stock') {
+    where.stock_quantity = { [Op.gt]: 0 };
+  } else if (input.stockStatus === 'low_stock') {
+    andConditions.push(
+      { stock_quantity: { [Op.gt]: 0 } },
+      sequelize.where(sequelize.col('stock_quantity'), '<=', sequelize.col('min_stock_alert')),
+    );
+  }
+
+  if (input.startDate || input.endDate) {
+    const dateCondition: Record<string | symbol, unknown> = {};
+    if (input.startDate) {
+      dateCondition[Op.gte] = new Date(`${input.startDate}T00:00:00.000Z`);
+    }
+    if (input.endDate) {
+      dateCondition[Op.lte] = new Date(`${input.endDate}T23:59:59.999Z`);
+    }
+    where.created_at = dateCondition;
+  }
+
+  if (andConditions.length > 0) {
+    where[Op.and] = andConditions;
+  }
+
+  const allowedSortFields = ['name', 'created_at', 'price', 'stock_quantity', 'expiry_date'];
+  const sortBy = allowedSortFields.includes(input.sortBy ?? '') ? input.sortBy! : 'name';
+  const sortOrder = input.sortOrder?.toUpperCase() === 'DESC' ? 'DESC' : 'ASC';
+
+  const order: [string, string][] = [[sortBy, sortOrder]];
+  if (sortBy !== 'name') {
+    order.push(['name', 'ASC']);
   }
 
   const { rows, count } = await Product.findAndCountAll({
     where,
-    order: [['name', 'ASC']],
+    order,
     limit: input.pageSize,
     offset: (input.page - 1) * input.pageSize,
   });
@@ -60,6 +116,22 @@ export async function listProducts(input: ListProductsInput): Promise<ListProduc
       totalPages: Math.ceil(count / input.pageSize),
     },
   };
+}
+
+export async function listCategories(tenantId: string): Promise<string[]> {
+  const products = await Product.findAll({
+    where: {
+      tenant_id: tenantId,
+      category: { [Op.and]: [{ [Op.ne]: null }, { [Op.ne]: '' }] },
+    },
+    attributes: [[sequelize.fn('DISTINCT', sequelize.col('category')), 'category']],
+    order: [[sequelize.col('category'), 'ASC']],
+    raw: true,
+  });
+
+  return (products as unknown as Array<{ category: string }>)
+    .map((p) => p.category?.trim())
+    .filter((cat): cat is string => Boolean(cat));
 }
 
 export async function getProductById(tenantId: string, id: string): Promise<Product> {
@@ -101,7 +173,13 @@ export interface CreateProductInput {
   tracks_batches?: boolean;
 }
 
-export async function createProduct(input: CreateProductInput): Promise<Product> {
+export interface CreateProductResult {
+  product: Product;
+  wasMerged: boolean;
+  addedStock: number;
+}
+
+export async function createProduct(input: CreateProductInput): Promise<CreateProductResult> {
   if (!input.name || input.price === undefined) {
     throw new AppError('Campos obrigatórios em falta: name, price', 422);
   }
@@ -110,26 +188,88 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
     throw new AppError('Unidade de medida inválida', 422);
   }
 
-  // Envolvido numa transação (revisão de performance/ACID, 2026-09-01):
-  // a verificação de duplicado + a escrita passam a ser uma única unidade
-  // de trabalho. Isto sozinho não fecha a corrida entre dois pedidos
-  // concorrentes com o mesmo código de barras (o nível de isolamento
-  // READ COMMITTED do Postgres deixaria os dois passarem a verificação),
-  // quem garante mesmo a consistência é o índice único
-  // `products_tenant_id_barcode_unique` na base de dados. O `catch` abaixo
-  // existe para que, no caso raro dessa corrida acontecer de facto, o
-  // utilizador continue a ver a mensagem amigável em vez de um erro 422
-  // genérico do `errorHandler`, mesmo padrão já usado em
-  // `saleService.createSale` para o `client_ref`.
+  const trimmedName = input.name.trim();
+  const cleanBarcode = input.barcode?.trim() || null;
+
   return sequelize.transaction(async (transaction) => {
-    if (input.barcode) {
-      const existing = await Product.findOne({
-        where: { tenant_id: input.tenantId, barcode: input.barcode },
+    let existing: Product | null = null;
+
+    // 1. Procura por código de barras existente (se fornecido)
+    if (cleanBarcode) {
+      existing = await Product.findOne({
+        where: { tenant_id: input.tenantId, barcode: cleanBarcode },
         transaction,
+        lock: transaction.LOCK.UPDATE,
       });
-      if (existing) {
-        throw new AppError(DUPLICATE_BARCODE_MESSAGE, 409);
+    }
+
+    // 2. Se não encontrou por código, procura por nome com mesma grafia (case-insensitive e sem espaços extras)
+    if (!existing) {
+      existing = await Product.findOne({
+        where: {
+          tenant_id: input.tenantId,
+          [Op.and]: [
+            sequelize.where(
+              sequelize.fn('LOWER', sequelize.fn('TRIM', sequelize.col('name'))),
+              trimmedName.toLowerCase(),
+            ),
+          ],
+        },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+    }
+
+    // Se o produto já existir, evita duplicação e soma o stock recebido
+    if (existing) {
+      const addedStock = roundQuantity(input.stock_quantity ?? 0);
+
+      if (existing.tracks_batches) {
+        if (addedStock > 0) {
+          await createInitialLotForExistingStock(
+            input.tenantId,
+            existing.id,
+            addedStock,
+            input.expiry_date ?? null,
+            transaction,
+          );
+        }
+      } else {
+        const nextStock = roundQuantity(existing.stock_quantity + addedStock);
+        existing.stock_quantity = nextStock;
+        if (input.expiry_date !== undefined && input.expiry_date) {
+          existing.expiry_date = input.expiry_date;
+        }
       }
+
+      if (!existing.is_active) {
+        existing.is_active = true;
+      }
+
+      if (cleanBarcode && !existing.barcode) {
+        existing.barcode = cleanBarcode;
+      }
+
+      if (input.category && !existing.category) {
+        existing.category = input.category;
+      }
+
+      if (input.price !== undefined && input.price > 0) {
+        existing.price = input.price;
+      }
+
+      if (input.cost_price !== undefined && input.cost_price > 0) {
+        existing.cost_price = input.cost_price;
+      }
+
+      await existing.save({ transaction });
+      await existing.reload({ transaction });
+
+      return {
+        product: existing,
+        wasMerged: true,
+        addedStock,
+      };
     }
 
     let product: Product;
@@ -138,8 +278,8 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       product = await Product.create(
         {
           tenant_id: input.tenantId,
-          barcode: input.barcode ?? null,
-          name: input.name,
+          barcode: cleanBarcode,
+          name: trimmedName,
           price: input.price,
           cost_price: input.cost_price ?? 0,
           stock_quantity: roundQuantity(input.stock_quantity ?? 0),
@@ -159,9 +299,6 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       throw error;
     }
 
-    // Criado já com controle por lotes e algum stock inicial: esse stock
-    // vira o primeiro lote, para o produto não ficar com um número que
-    // nenhum lote sustenta (ver createInitialLotForExistingStock).
     if (product.tracks_batches && product.stock_quantity > 0) {
       await createInitialLotForExistingStock(
         input.tenantId,
@@ -173,6 +310,62 @@ export async function createProduct(input: CreateProductInput): Promise<Product>
       await product.reload({ transaction });
     }
 
+    return {
+      product,
+      wasMerged: false,
+      addedStock: product.stock_quantity,
+    };
+  });
+}
+
+export interface AddStockInput {
+  tenantId: string;
+  id: string;
+  quantity: number;
+  costPrice?: number;
+  expiryDate?: string | null;
+}
+
+export async function addStock(input: AddStockInput): Promise<Product> {
+  if (!input.quantity || input.quantity <= 0) {
+    throw new AppError('A quantidade a adicionar deve ser maior que zero', 422);
+  }
+
+  return sequelize.transaction(async (transaction) => {
+    const product = await Product.findOne({
+      where: { id: input.id, tenant_id: input.tenantId },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+
+    if (!product) {
+      throw new AppError('Produto não encontrado', 404);
+    }
+
+    const added = roundQuantity(input.quantity);
+
+    if (product.tracks_batches) {
+      await createInitialLotForExistingStock(
+        input.tenantId,
+        product.id,
+        added,
+        input.expiryDate ?? null,
+        transaction,
+      );
+    } else {
+      const newStock = roundQuantity(product.stock_quantity + added);
+      await product.update(
+        {
+          stock_quantity: newStock,
+          cost_price: input.costPrice !== undefined && input.costPrice > 0 ? input.costPrice : product.cost_price,
+          expiry_date: input.expiryDate !== undefined ? input.expiryDate : product.expiry_date,
+          is_active: true,
+        },
+        { transaction },
+      );
+    }
+
+    await product.reload({ transaction });
     return product;
   });
 }

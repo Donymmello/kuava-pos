@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { isFractionalUnit, PRODUCT_UNIT_LABELS, Product, ProductUnit } from '../../types';
 import { ProductInput } from '../../services/productService';
+import { formatDateTime } from '../../utils/date';
 
 interface ProductFormDialogProps {
   open: boolean;
@@ -156,7 +157,16 @@ export default function ProductFormDialog({
 
   return (
     <Dialog open={open} onClose={submitting ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{mode === 'create' ? 'Novo produto' : 'Editar produto'}</DialogTitle>
+      <DialogTitle>
+        <Stack direction="row" justifyContent="space-between" alignItems="baseline">
+          <span>{mode === 'create' ? 'Novo produto' : 'Editar produto'}</span>
+          {mode === 'edit' && product?.created_at && (
+            <Typography variant="caption" color="text.secondary">
+              Entrada: {formatDateTime(product.created_at)}
+            </Typography>
+          )}
+        </Stack>
+      </DialogTitle>
       <Stack component="form" onSubmit={handleSubmit}>
         <DialogContent>
           <Stack spacing={2}>

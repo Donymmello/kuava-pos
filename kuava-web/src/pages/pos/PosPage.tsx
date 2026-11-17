@@ -4,7 +4,7 @@ import CloudOffOutlinedIcon from '@mui/icons-material/CloudOffOutlined';
 import { useCartStore } from '../../store/useCartStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useOfflineStore } from '../../store/useOfflineStore';
-import { fetchProducts } from '../../services/productService';
+import { fetchAllActiveProducts } from '../../services/productService';
 import { registerSale, RegisterSalePayload } from '../../services/saleService';
 import { fetchTenant } from '../../services/tenantService';
 import { cacheProducts, cacheTenant, decrementCachedStock, getCachedProducts, getCachedTenant } from '../../db/offlineDb';
@@ -59,7 +59,7 @@ export default function PosPage() {
   const loadProducts = useCallback(async () => {
     setLoadingProducts(true);
     try {
-      const result = await fetchProducts();
+      const result = await fetchAllActiveProducts();
       setProducts(result);
       setUsingOfflineCatalog(false);
       cacheProducts(result).catch(() => undefined);

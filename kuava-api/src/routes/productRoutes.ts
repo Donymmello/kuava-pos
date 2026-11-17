@@ -3,10 +3,12 @@ import { authMiddleware, requireRole } from '../middlewares/authMiddleware';
 import { tenantMiddleware } from '../middlewares/tenantMiddleware';
 import { requireActiveSubscription } from '../middlewares/subscriptionMiddleware';
 import {
+  addProductStock,
   createProduct,
   deleteProduct,
   getProductByBarcode,
   getProductById,
+  listCategories,
   listProducts,
   updateProduct,
 } from '../controllers/productController';
@@ -24,9 +26,11 @@ router.use(authMiddleware, tenantMiddleware, requireActiveSubscription);
 // Leitura disponível a qualquer perfil autenticado (o caixa precisa de ver
 // os produtos no POS); gerir o catálogo fica reservado a ADMIN/MANAGER.
 router.get('/', listProducts);
+router.get('/categories', listCategories);
 router.get('/barcode/:barcode', getProductByBarcode);
 router.get('/:id', getProductById);
 router.post('/', requireRole(UserRole.ADMIN, UserRole.MANAGER), createProduct);
+router.post('/:id/stock', requireRole(UserRole.ADMIN, UserRole.MANAGER), addProductStock);
 router.put('/:id', requireRole(UserRole.ADMIN, UserRole.MANAGER), updateProduct);
 router.delete('/:id', requireRole(UserRole.ADMIN, UserRole.MANAGER), deleteProduct);
 

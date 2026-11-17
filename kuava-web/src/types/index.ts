@@ -212,6 +212,9 @@ export interface Product {
    * deste produto, geridos em "Ver lotes" no Inventário.
    */
   tracks_batches: boolean;
+  /** Data em que o produto foi registado no sistema (ISO string). */
+  created_at: string;
+  updated_at?: string;
 }
 
 export interface ProductLot {
